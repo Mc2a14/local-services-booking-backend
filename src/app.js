@@ -34,5 +34,22 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// 404 handler - must be after all routes
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not Found' });
+});
+
+// Global error handling middleware - must be last
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  
+  // If response was already sent, delegate to default Express error handler
+  if (res.headersSent) {
+    return next(err);
+  }
+  
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+});
+
 module.exports = app;
 
