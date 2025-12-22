@@ -1,0 +1,4 @@
+# Services layer
+# Business logic and data processing
+# Services are called by controllers and can call other services or the database
+
