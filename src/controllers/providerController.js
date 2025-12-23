@@ -76,10 +76,74 @@ const updateMyProvider = async (req, res) => {
   }
 };
 
+// Update provider email configuration
+const updateEmailConfig = async (req, res) => {
+  try {
+    const { 
+      email_service_type,
+      email_smtp_host, 
+      email_smtp_port, 
+      email_smtp_secure,
+      email_smtp_user, 
+      email_smtp_password, 
+      email_from_address,
+      email_from_name 
+    } = req.body;
+
+    // Validation
+    if (email_service_type && !['smtp', 'gmail', 'sendgrid'].includes(email_service_type)) {
+      return res.status(400).json({ error: 'email_service_type must be smtp, gmail, or sendgrid' });
+    }
+
+    const provider = await providerService.updateProviderEmailConfig(req.user.id, {
+      email_service_type,
+      email_smtp_host,
+      email_smtp_port,
+      email_smtp_secure,
+      email_smtp_user,
+      email_smtp_password,
+      email_from_address,
+      email_from_name
+    });
+
+    res.json({
+      message: 'Email configuration updated successfully',
+      provider
+    });
+  } catch (error) {
+    console.error('Update email config error:', error);
+    
+    if (error.message === 'Provider not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get provider email configuration
+const getEmailConfig = async (req, res) => {
+  try {
+    const config = await providerService.getProviderEmailConfig(req.user.id);
+
+    res.json({ email_config: config });
+  } catch (error) {
+    console.error('Get email config error:', error);
+    
+    if (error.message === 'Provider not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createProvider,
   getMyProvider,
-  updateMyProvider
+  updateMyProvider,
+  updateEmailConfig,
+  getEmailConfig
 };
 
 

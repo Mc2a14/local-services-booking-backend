@@ -61,6 +61,21 @@ const runMigrations = async () => {
         console.log('⚠️  Email error field migration:', err.message);
       }
     }
+
+    // Run provider email config migration
+    try {
+      const providerEmailMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_provider_email_config.sql');
+      if (fs.existsSync(providerEmailMigrationPath)) {
+        const providerEmailMigrationSQL = fs.readFileSync(providerEmailMigrationPath, 'utf8');
+        await pool.query(providerEmailMigrationSQL);
+        console.log('✅ Provider email config migration completed');
+      }
+    } catch (err) {
+      // Ignore if columns already exist
+      if (!err.message.includes('already exists') && err.code !== '42701') {
+        console.log('⚠️  Provider email config migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {

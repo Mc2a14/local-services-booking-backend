@@ -1,9 +1,48 @@
 const { query } = require('../db');
 const nodemailer = require('nodemailer');
+const { decrypt } = require('../utils/encryption');
 
-// Create email transporter
-const createTransporter = () => {
-  // Check if using SendGrid
+// Create email transporter from provider's email config or system defaults
+const createTransporter = (providerEmailConfig = null) => {
+  // Priority 1: Use provider's email configuration if available
+  if (providerEmailConfig) {
+    const { email_service_type, email_smtp_host, email_smtp_port, email_smtp_secure, email_smtp_user, email_smtp_password_encrypted } = providerEmailConfig;
+    
+    if (email_smtp_user && email_smtp_password_encrypted) {
+      const decryptedPassword = decrypt(email_smtp_password_encrypted);
+      
+      if (email_service_type === 'gmail') {
+        return nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: email_smtp_user,
+            pass: decryptedPassword
+          }
+        });
+      } else if (email_service_type === 'sendgrid') {
+        return nodemailer.createTransport({
+          service: 'SendGrid',
+          auth: {
+            user: 'apikey',
+            pass: decryptedPassword // API key for SendGrid
+          }
+        });
+      } else if (email_smtp_host) {
+        // Custom SMTP
+        return nodemailer.createTransport({
+          host: email_smtp_host,
+          port: parseInt(email_smtp_port || '587'),
+          secure: email_smtp_secure === true,
+          auth: {
+            user: email_smtp_user,
+            pass: decryptedPassword
+          }
+        });
+      }
+    }
+  }
+
+  // Priority 2: Use system-wide email configuration (fallback)
   if (process.env.SENDGRID_API_KEY) {
     return nodemailer.createTransport({
       service: 'SendGrid',
@@ -14,7 +53,6 @@ const createTransporter = () => {
     });
   }
 
-  // Check if using custom SMTP
   if (process.env.SMTP_HOST) {
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -27,7 +65,6 @@ const createTransporter = () => {
     });
   }
 
-  // Default: Gmail SMTP (for testing)
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
     return nodemailer.createTransport({
       service: 'gmail',
@@ -91,7 +128,7 @@ const createEmailTemplate = (title, content, bookingDetails = null) => {
 
 // Send email notification
 const sendEmail = async (emailData) => {
-  const { booking_id, recipient_email, recipient_type, notification_type, subject, body, html, fromEmail, fromName, replyTo } = emailData;
+  const { booking_id, recipient_email, recipient_type, notification_type, subject, body, html, fromEmail, fromName, replyTo, providerEmailConfig } = emailData;
 
   // Store email notification in database first
   let emailRecord;
@@ -107,33 +144,40 @@ const sendEmail = async (emailData) => {
     console.error('Error saving email notification:', error);
   }
 
-  // Try to send actual email
-  const transporter = createTransporter();
+  // Try to send actual email - use provider's config if available
+  const transporter = createTransporter(providerEmailConfig);
   if (transporter) {
     try {
-      // System email for sending (must be verified in email service)
-      const systemEmail = process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@bookingservice.com';
-      const systemName = process.env.EMAIL_FROM_NAME || 'Booking Service';
+      // Determine sender email and name
+      let senderEmail, senderName;
       
-      // Use business name if provided, otherwise use system name
-      const senderName = fromName || systemName;
+      if (providerEmailConfig && providerEmailConfig.email_from_address) {
+        // Use provider's configured email address
+        senderEmail = providerEmailConfig.email_from_address;
+        senderName = providerEmailConfig.email_from_name || fromName || 'Booking Service';
+      } else {
+        // Fallback to system email or provided email
+        senderEmail = fromEmail || process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@bookingservice.com';
+        senderName = fromName || process.env.EMAIL_FROM_NAME || 'Booking Service';
+      }
       
       // Build mail options
       const mailOptions = {
-        // Send FROM system email (must be verified), but show business name
-        from: `"${senderName}" <${systemEmail}>`,
+        // Send FROM the business owner's email (or system email if not configured)
+        from: `"${senderName}" <${senderEmail}>`,
         to: recipient_email,
         subject: subject,
         text: body,
         html: html || createEmailTemplate(subject, body.replace(/\n/g, '<br>'))
       };
 
-      // Add reply-to to business owner's email (customers can reply directly to them)
+      // Add reply-to to business owner's email (always use provider's email for replies)
       if (replyTo) {
         mailOptions.replyTo = replyTo;
       } else if (fromEmail) {
-        // If fromEmail (provider's email) is set, use it as reply-to
         mailOptions.replyTo = fromEmail;
+      } else if (providerEmailConfig && providerEmailConfig.email_from_address) {
+        mailOptions.replyTo = providerEmailConfig.email_from_address;
       }
 
       await transporter.sendMail(mailOptions);
@@ -175,7 +219,7 @@ const sendEmail = async (emailData) => {
 };
 
 // Send booking confirmation email
-const sendBookingConfirmation = async (booking, customerEmail, providerEmail, providerBusinessName = null) => {
+const sendBookingConfirmation = async (booking, customerEmail, providerEmail, providerBusinessName = null, providerEmailConfig = null) => {
   const bookingDate = new Date(booking.booking_date);
   const formattedDate = bookingDate.toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -213,9 +257,10 @@ const sendBookingConfirmation = async (booking, customerEmail, providerEmail, pr
     subject: `Booking Confirmation - ${booking.service_title || 'Service'}`,
     body: `Your booking has been confirmed!\n\nService: ${booking.service_title || 'Service'}\nDate: ${formattedDate}\nBooking ID: #${booking.id}\nStatus: ${booking.status}\n\nThank you for your booking!\n\nIf you need to make changes, please reply to this email.`,
     html: customerHtml,
-    fromEmail: providerEmail, // Send FROM the business owner's email
+    fromEmail: providerEmail, // Fallback email if provider config not available
     fromName: senderName,      // Use business name
-    replyTo: providerEmail     // Reply-To also set to business owner
+    replyTo: providerEmail,    // Reply-To set to business owner
+    providerEmailConfig: providerEmailConfig // Provider's email config for sending
   });
 
   // Email to provider - notification of new booking

@@ -9,6 +9,10 @@ router.post('/', authenticate, providerController.createProvider);
 router.get('/me', authenticate, providerController.getMyProvider);
 router.put('/me', authenticate, providerController.updateMyProvider);
 
+// Email configuration routes
+router.put('/me/email-config', authenticate, providerController.updateEmailConfig);
+router.get('/me/email-config', authenticate, providerController.getEmailConfig);
+
 module.exports = router;
 
 

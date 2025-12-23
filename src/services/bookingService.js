@@ -28,10 +28,12 @@ const createBooking = async (customerId, bookingData) => {
     throw new Error(availability.reason || 'Time slot is not available');
   }
 
-  // Get customer and provider emails for notifications (including business name)
+  // Get customer and provider emails for notifications (including business name and email config)
   const customerResult = await query('SELECT email, full_name FROM users WHERE id = $1', [customerId]);
   const providerResult = await query(
-    `SELECT u.email, u.full_name, p.business_name 
+    `SELECT u.email, u.full_name, p.business_name,
+     p.email_service_type, p.email_smtp_host, p.email_smtp_port, p.email_smtp_secure,
+     p.email_smtp_user, p.email_smtp_password_encrypted, p.email_from_address, p.email_from_name
      FROM users u 
      LEFT JOIN providers p ON u.id = p.user_id 
      WHERE u.id = $1`,
@@ -51,6 +53,18 @@ const createBooking = async (customerId, bookingData) => {
   booking.customer_name = customerResult.rows[0].full_name;
   booking.provider_name = providerResult.rows[0].full_name;
   const providerBusinessName = providerResult.rows[0].business_name;
+  
+  // Get provider's email configuration
+  const providerEmailConfig = providerResult.rows[0].email_smtp_user ? {
+    email_service_type: providerResult.rows[0].email_service_type,
+    email_smtp_host: providerResult.rows[0].email_smtp_host,
+    email_smtp_port: providerResult.rows[0].email_smtp_port,
+    email_smtp_secure: providerResult.rows[0].email_smtp_secure,
+    email_smtp_user: providerResult.rows[0].email_smtp_user,
+    email_smtp_password_encrypted: providerResult.rows[0].email_smtp_password_encrypted,
+    email_from_address: providerResult.rows[0].email_from_address,
+    email_from_name: providerResult.rows[0].email_from_name
+  } : null;
 
   // Send confirmation emails
   try {
@@ -58,7 +72,8 @@ const createBooking = async (customerId, bookingData) => {
       booking,
       customerResult.rows[0].email,
       providerResult.rows[0].email,
-      providerBusinessName
+      providerBusinessName,
+      providerEmailConfig
     );
   } catch (error) {
     console.error('Failed to send booking confirmation emails:', error);
@@ -99,9 +114,11 @@ const createGuestBooking = async (bookingData) => {
     throw new Error(availability.reason || 'Time slot is not available');
   }
 
-  // Get provider info for notifications (including business name)
+  // Get provider info for notifications (including business name and email config)
   const providerResult = await query(
-    `SELECT u.email, u.full_name, p.business_name 
+    `SELECT u.email, u.full_name, p.business_name,
+     p.email_service_type, p.email_smtp_host, p.email_smtp_port, p.email_smtp_secure,
+     p.email_smtp_user, p.email_smtp_password_encrypted, p.email_from_address, p.email_from_name
      FROM users u 
      LEFT JOIN providers p ON u.id = p.user_id 
      WHERE u.id = $1`,
@@ -123,6 +140,18 @@ const createGuestBooking = async (bookingData) => {
   booking.customer_name = customer_name;
   booking.provider_name = providerResult.rows[0].full_name;
   const providerBusinessName = providerResult.rows[0].business_name;
+  
+  // Get provider's email configuration
+  const providerEmailConfig = providerResult.rows[0].email_smtp_user ? {
+    email_service_type: providerResult.rows[0].email_service_type,
+    email_smtp_host: providerResult.rows[0].email_smtp_host,
+    email_smtp_port: providerResult.rows[0].email_smtp_port,
+    email_smtp_secure: providerResult.rows[0].email_smtp_secure,
+    email_smtp_user: providerResult.rows[0].email_smtp_user,
+    email_smtp_password_encrypted: providerResult.rows[0].email_smtp_password_encrypted,
+    email_from_address: providerResult.rows[0].email_from_address,
+    email_from_name: providerResult.rows[0].email_from_name
+  } : null;
 
   // Send confirmation emails
   try {
@@ -130,7 +159,8 @@ const createGuestBooking = async (bookingData) => {
       booking,
       customer_email,
       providerResult.rows[0].email,
-      providerBusinessName
+      providerBusinessName,
+      providerEmailConfig
     );
   } catch (error) {
     console.error('Failed to send booking confirmation emails:', error);
