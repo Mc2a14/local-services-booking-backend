@@ -111,3 +111,4 @@ echo "4. Test AI chat"
 echo ""
 echo "See TESTING_GUIDE.md for detailed testing instructions"
 
+

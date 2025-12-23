@@ -2,7 +2,7 @@ const { query } = require('../db');
 const availabilityService = require('./availabilityService');
 const emailService = require('./emailService');
 
-// Create a new booking
+// Create a new booking (for registered users)
 const createBooking = async (customerId, bookingData) => {
   const { service_id, booking_date, notes } = bookingData;
 
@@ -34,8 +34,8 @@ const createBooking = async (customerId, bookingData) => {
 
   // Insert booking
   const result = await query(
-    'INSERT INTO bookings (customer_id, service_id, provider_id, booking_date, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-    [customerId, service_id, service.provider_id, booking_date, notes || null]
+    'INSERT INTO bookings (customer_id, service_id, provider_id, booking_date, notes, customer_name, customer_email) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+    [customerId, service_id, service.provider_id, booking_date, notes || null, customerResult.rows[0].full_name, customerResult.rows[0].email]
   );
 
   const booking = result.rows[0];
@@ -60,16 +60,92 @@ const createBooking = async (customerId, bookingData) => {
   return booking;
 };
 
+// Create a guest booking (no account required)
+const createGuestBooking = async (bookingData) => {
+  const { service_id, booking_date, notes, customer_name, customer_email, customer_phone } = bookingData;
+
+  // Validation
+  if (!customer_name || !customer_email) {
+    throw new Error('Customer name and email are required');
+  }
+
+  // Get service to verify it exists and get provider_id
+  const serviceResult = await query(
+    'SELECT provider_id, is_active, title FROM services WHERE id = $1',
+    [service_id]
+  );
+
+  if (serviceResult.rows.length === 0) {
+    throw new Error('Service not found');
+  }
+
+  const service = serviceResult.rows[0];
+  
+  if (!service.is_active) {
+    throw new Error('Service is not available');
+  }
+
+  // Check availability
+  const availability = await availabilityService.isTimeSlotAvailable(service.provider_id, booking_date);
+  if (!availability.available) {
+    throw new Error(availability.reason || 'Time slot is not available');
+  }
+
+  // Get provider info for notifications
+  const providerResult = await query('SELECT email, full_name FROM users WHERE id = $1', [service.provider_id]);
+
+  // Insert guest booking (customer_id is NULL)
+  const result = await query(
+    `INSERT INTO bookings (customer_id, service_id, provider_id, booking_date, notes, customer_name, customer_email, customer_phone) 
+     VALUES (NULL, $1, $2, $3, $4, $5, $6, $7) 
+     RETURNING *`,
+    [service_id, service.provider_id, booking_date, notes || null, customer_name, customer_email, customer_phone || null]
+  );
+
+  const booking = result.rows[0];
+  
+  // Add service title and names for email
+  booking.service_title = service.title;
+  booking.customer_name = customer_name;
+  booking.provider_name = providerResult.rows[0].full_name;
+
+  // Send confirmation emails
+  try {
+    await emailService.sendBookingConfirmation(
+      booking,
+      customer_email,
+      providerResult.rows[0].email
+    );
+  } catch (error) {
+    console.error('Failed to send booking confirmation emails:', error);
+    // Don't fail the booking if email fails
+  }
+
+  return booking;
+};
+
 // Get booking by ID
 const getBookingById = async (bookingId, userId, userType) => {
-  let queryText = 'SELECT b.*, s.title as service_title, s.price, u1.full_name as customer_name, u2.full_name as provider_name FROM bookings b JOIN services s ON b.service_id = s.id JOIN users u1 ON b.customer_id = u1.id JOIN users u2 ON b.provider_id = u2.id WHERE b.id = $1';
+  let queryText = `SELECT b.*, s.title as service_title, s.price, 
+                   COALESCE(b.customer_name, u1.full_name) as customer_name,
+                   COALESCE(b.customer_email, u1.email) as customer_email,
+                   COALESCE(b.customer_phone, u1.phone) as customer_phone,
+                   u2.full_name as provider_name 
+                   FROM bookings b 
+                   JOIN services s ON b.service_id = s.id 
+                   LEFT JOIN users u1 ON b.customer_id = u1.id 
+                   JOIN users u2 ON b.provider_id = u2.id 
+                   WHERE b.id = $1`;
   const params = [bookingId];
 
   // Ensure user can only see their own bookings
-  if (userType === 'customer') {
-    queryText += ' AND b.customer_id = $2';
-    params.push(userId);
-  } else if (userType === 'provider') {
+  if (userType === 'customer' && userId) {
+    const userResult = await query('SELECT email FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length > 0) {
+      queryText += ' AND (b.customer_id = $2 OR b.customer_email = $3)';
+      params.push(userId, userResult.rows[0].email);
+    }
+  } else if (userType === 'provider' && userId) {
     queryText += ' AND b.provider_id = $2';
     params.push(userId);
   }
@@ -83,13 +159,15 @@ const getBookingById = async (bookingId, userId, userType) => {
   return result.rows[0];
 };
 
-// Get all bookings for a customer
+// Get all bookings for a customer (by user ID or email)
 const getBookingsByCustomerId = async (customerId) => {
   const result = await query(
-    `SELECT b.*, s.title as service_title, s.price, u.full_name as provider_name, p.business_name 
+    `SELECT b.*, s.title as service_title, s.price, 
+     COALESCE(b.customer_name, u.full_name) as customer_name,
+     u.full_name as provider_name, p.business_name 
      FROM bookings b 
      JOIN services s ON b.service_id = s.id 
-     JOIN users u ON b.provider_id = u.id 
+     LEFT JOIN users u ON b.provider_id = u.id 
      LEFT JOIN providers p ON u.id = p.user_id
      WHERE b.customer_id = $1 
      ORDER BY b.booking_date DESC`,
@@ -99,13 +177,33 @@ const getBookingsByCustomerId = async (customerId) => {
   return result.rows;
 };
 
+// Get bookings by email (for guest bookings)
+const getBookingsByEmail = async (email) => {
+  const result = await query(
+    `SELECT b.*, s.title as service_title, s.price, 
+     b.customer_name, u.full_name as provider_name, p.business_name 
+     FROM bookings b 
+     JOIN services s ON b.service_id = s.id 
+     LEFT JOIN users u ON b.provider_id = u.id 
+     LEFT JOIN providers p ON u.id = p.user_id
+     WHERE b.customer_email = $1 AND b.customer_id IS NULL
+     ORDER BY b.booking_date DESC`,
+    [email]
+  );
+
+  return result.rows;
+};
+
 // Get all bookings for a provider
 const getBookingsByProviderId = async (providerId) => {
   const result = await query(
-    `SELECT b.*, s.title as service_title, s.price, u.full_name as customer_name 
+    `SELECT b.*, s.title as service_title, s.price, 
+     COALESCE(b.customer_name, u.full_name) as customer_name,
+     COALESCE(b.customer_email, u.email) as customer_email,
+     COALESCE(b.customer_phone, u.phone) as customer_phone
      FROM bookings b 
      JOIN services s ON b.service_id = s.id 
-     JOIN users u ON b.customer_id = u.id 
+     LEFT JOIN users u ON b.customer_id = u.id 
      WHERE b.provider_id = $1 
      ORDER BY b.booking_date DESC`,
     [providerId]
@@ -148,10 +246,12 @@ const updateBookingStatus = async (bookingId, providerId, status) => {
 
   // Get additional booking details for email
   const bookingDetails = await query(
-    `SELECT b.*, s.title as service_title, u.full_name as customer_name
+    `SELECT b.*, s.title as service_title,
+     COALESCE(b.customer_name, u.full_name) as customer_name,
+     COALESCE(b.customer_email, u.email) as customer_email
      FROM bookings b
      JOIN services s ON b.service_id = s.id
-     JOIN users u ON b.customer_id = u.id
+     LEFT JOIN users u ON b.customer_id = u.id
      WHERE b.id = $1`,
     [bookingId]
   );
@@ -159,17 +259,14 @@ const updateBookingStatus = async (bookingId, providerId, status) => {
   const booking = bookingDetails.rows[0] || result.rows[0];
 
   // Send status update email if status changed
-  if (oldStatus !== status) {
+  if (oldStatus !== status && booking.customer_email) {
     try {
-      const customerResult = await query('SELECT email FROM users WHERE id = $1', [booking.customer_id]);
-      if (customerResult.rows.length > 0) {
-        await emailService.sendBookingStatusUpdate(
-          booking,
-          customerResult.rows[0].email,
-          oldStatus,
-          status
-        );
-      }
+      await emailService.sendBookingStatusUpdate(
+        booking,
+        booking.customer_email,
+        oldStatus,
+        status
+      );
     } catch (error) {
       console.error('Failed to send status update email:', error);
     }
@@ -194,10 +291,11 @@ const cancelBooking = async (bookingId, customerId) => {
 
 module.exports = {
   createBooking,
+  createGuestBooking,
   getBookingById,
   getBookingsByCustomerId,
+  getBookingsByEmail,
   getBookingsByProviderId,
   updateBookingStatus,
   cancelBooking
 };
-

@@ -211,3 +211,4 @@ if [ -n "$CUSTOMER_TOKEN" ]; then
   echo "  Customer Token: ${CUSTOMER_TOKEN:0:50}..."
 fi
 
+

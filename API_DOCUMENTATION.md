@@ -393,3 +393,4 @@ All errors follow this format:
 - Customer must be registered before creating bookings
 - AI chat requires OpenAI API key to be configured
 
+

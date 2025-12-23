@@ -32,6 +32,21 @@ const runMigrations = async () => {
     // PostgreSQL handles IF NOT EXISTS gracefully
     await pool.query(schemaWithoutExtension);
     
+    // Run guest bookings migration
+    try {
+      const guestMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_guest_bookings.sql');
+      if (fs.existsSync(guestMigrationPath)) {
+        const guestMigrationSQL = fs.readFileSync(guestMigrationPath, 'utf8');
+        await pool.query(guestMigrationSQL);
+        console.log('✅ Guest bookings migration completed');
+      }
+    } catch (err) {
+      // Ignore if columns already exist
+      if (!err.message.includes('already exists') && !err.code === '42701') {
+        console.log('⚠️  Guest bookings migration:', err.message);
+      }
+    }
+    
     console.log('✅ Database migrations completed successfully');
   } catch (error) {
     // Check if error is about things already existing (safe to ignore)

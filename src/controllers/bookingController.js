@@ -1,6 +1,6 @@
 const bookingService = require('../services/bookingService');
 
-// Create a new booking (customer only)
+// Create a new booking (customer only - requires auth)
 const createBooking = async (req, res) => {
   try {
     const { service_id, booking_date, notes } = req.body;
@@ -45,11 +45,81 @@ const createBooking = async (req, res) => {
   }
 };
 
+// Create a guest booking (no auth required - public)
+const createGuestBooking = async (req, res) => {
+  try {
+    const { service_id, booking_date, notes, customer_name, customer_email, customer_phone } = req.body;
+
+    // Validation
+    if (!service_id || !booking_date) {
+      return res.status(400).json({ error: 'service_id and booking_date are required' });
+    }
+
+    if (!customer_name || !customer_email) {
+      return res.status(400).json({ error: 'customer_name and customer_email are required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(customer_email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Validate booking_date is in the future
+    const bookingDate = new Date(booking_date);
+    if (isNaN(bookingDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid booking_date format' });
+    }
+
+    if (bookingDate < new Date()) {
+      return res.status(400).json({ error: 'Booking date must be in the future' });
+    }
+
+    const booking = await bookingService.createGuestBooking({
+      service_id,
+      booking_date,
+      notes,
+      customer_name,
+      customer_email,
+      customer_phone
+    });
+
+    res.status(201).json({
+      message: 'Booking created successfully. A confirmation email will be sent to your email address.',
+      booking: {
+        id: booking.id,
+        service_title: booking.service_title,
+        booking_date: booking.booking_date,
+        status: booking.status
+      }
+    });
+  } catch (error) {
+    console.error('Create guest booking error:', error);
+    
+    if (error.message === 'Service not found' || error.message === 'Service is not available') {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    if (error.message.includes('not available') || error.message.includes('Time slot')) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (error.message.includes('required')) {
+      return res.status(400).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // Get booking by ID
 const getBooking = async (req, res) => {
   try {
     const { id } = req.params;
-    const booking = await bookingService.getBookingById(id, req.user.id, req.user.user_type);
+    const userId = req.user ? req.user.id : null;
+    const userType = req.user ? req.user.user_type : null;
+
+    const booking = await bookingService.getBookingById(id, userId, userType);
 
     res.json({ booking });
   } catch (error) {
@@ -71,6 +141,24 @@ const getMyBookings = async (req, res) => {
     res.json({ bookings });
   } catch (error) {
     console.error('Get bookings error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get bookings by email (for guest bookings lookup)
+const getBookingsByEmail = async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const bookings = await bookingService.getBookingsByEmail(email);
+
+    res.json({ bookings });
+  } catch (error) {
+    console.error('Get bookings by email error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -131,7 +219,7 @@ const updateBookingStatus = async (req, res) => {
   }
 };
 
-// Cancel booking (customer only)
+// Cancel booking (customer can cancel their own bookings)
 const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -155,10 +243,11 @@ const cancelBooking = async (req, res) => {
 
 module.exports = {
   createBooking,
+  createGuestBooking,
   getBooking,
   getMyBookings,
+  getBookingsByEmail,
   getProviderBookings,
   updateBookingStatus,
   cancelBooking
 };
-

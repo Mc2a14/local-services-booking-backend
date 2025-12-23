@@ -4,7 +4,11 @@ const { authenticate, requireProvider, requireCustomer } = require('../middlewar
 
 const router = express.Router();
 
-// Customer routes
+// Public route - guest booking (no auth required)
+router.post('/guest', bookingController.createGuestBooking);
+router.get('/guest/email', bookingController.getBookingsByEmail); // Look up bookings by email
+
+// Customer routes (require auth)
 router.post('/', authenticate, requireCustomer, bookingController.createBooking);
 router.get('/my-bookings', authenticate, requireCustomer, bookingController.getMyBookings);
 router.get('/:id', authenticate, bookingController.getBooking);
@@ -15,4 +19,5 @@ router.get('/provider/my-bookings', authenticate, requireProvider, bookingContro
 router.put('/:id/status', authenticate, requireProvider, bookingController.updateBookingStatus);
 
 module.exports = router;
+
 
