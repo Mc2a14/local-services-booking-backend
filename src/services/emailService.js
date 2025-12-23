@@ -91,7 +91,7 @@ const createEmailTemplate = (title, content, bookingDetails = null) => {
 
 // Send email notification
 const sendEmail = async (emailData) => {
-  const { booking_id, recipient_email, recipient_type, notification_type, subject, body, html } = emailData;
+  const { booking_id, recipient_email, recipient_type, notification_type, subject, body, html, fromEmail, fromName, replyTo } = emailData;
 
   // Store email notification in database first
   let emailRecord;
@@ -111,16 +111,32 @@ const sendEmail = async (emailData) => {
   const transporter = createTransporter();
   if (transporter) {
     try {
-      const fromEmail = process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@bookingservice.com';
-      const fromName = process.env.EMAIL_FROM_NAME || 'Booking Service';
-
-      await transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
+      // System email for sending (must be verified in email service)
+      const systemEmail = process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@bookingservice.com';
+      const systemName = process.env.EMAIL_FROM_NAME || 'Booking Service';
+      
+      // Use business name if provided, otherwise use system name
+      const senderName = fromName || systemName;
+      
+      // Build mail options
+      const mailOptions = {
+        // Send FROM system email (must be verified), but show business name
+        from: `"${senderName}" <${systemEmail}>`,
         to: recipient_email,
         subject: subject,
         text: body,
         html: html || createEmailTemplate(subject, body.replace(/\n/g, '<br>'))
-      });
+      };
+
+      // Add reply-to to business owner's email (customers can reply directly to them)
+      if (replyTo) {
+        mailOptions.replyTo = replyTo;
+      } else if (fromEmail) {
+        // If fromEmail (provider's email) is set, use it as reply-to
+        mailOptions.replyTo = fromEmail;
+      }
+
+      await transporter.sendMail(mailOptions);
 
       console.log(`✅ Email sent successfully to ${recipient_email}`);
       
@@ -159,7 +175,7 @@ const sendEmail = async (emailData) => {
 };
 
 // Send booking confirmation email
-const sendBookingConfirmation = async (booking, customerEmail, providerEmail) => {
+const sendBookingConfirmation = async (booking, customerEmail, providerEmail, providerBusinessName = null) => {
   const bookingDate = new Date(booking.booking_date);
   const formattedDate = bookingDate.toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -171,12 +187,16 @@ const sendBookingConfirmation = async (booking, customerEmail, providerEmail) =>
     hour12: true
   });
 
-  // Email to customer
+  // Use business name if available, otherwise use provider name
+  const senderName = providerBusinessName || booking.provider_name || 'Booking Service';
+  const replyToEmail = providerEmail; // Customers can reply directly to the business owner
+
+  // Email to customer - appears to come from the business owner
   const customerHtml = createEmailTemplate(
     'Booking Confirmed! ✅',
     `<p>Hello ${booking.customer_name || 'Valued Customer'},</p>
      <p>Your booking has been confirmed! We're excited to serve you.</p>
-     <p><strong>What's next?</strong> You'll receive a reminder before your appointment. If you need to make any changes, please contact us.</p>`,
+     <p><strong>What's next?</strong> You'll receive a reminder before your appointment. If you need to make any changes, please reply to this email or contact us directly.</p>`,
     {
       'Booking ID': `#${booking.id}`,
       'Service': booking.service_title || 'Service',
@@ -191,11 +211,14 @@ const sendBookingConfirmation = async (booking, customerEmail, providerEmail) =>
     recipient_type: 'customer',
     notification_type: 'booking_confirmation',
     subject: `Booking Confirmation - ${booking.service_title || 'Service'}`,
-    body: `Your booking has been confirmed!\n\nService: ${booking.service_title || 'Service'}\nDate: ${formattedDate}\nBooking ID: #${booking.id}\nStatus: ${booking.status}\n\nThank you for your booking!`,
-    html: customerHtml
+    body: `Your booking has been confirmed!\n\nService: ${booking.service_title || 'Service'}\nDate: ${formattedDate}\nBooking ID: #${booking.id}\nStatus: ${booking.status}\n\nThank you for your booking!\n\nIf you need to make changes, please reply to this email.`,
+    html: customerHtml,
+    fromEmail: providerEmail, // Send FROM the business owner's email
+    fromName: senderName,      // Use business name
+    replyTo: providerEmail     // Reply-To also set to business owner
   });
 
-  // Email to provider
+  // Email to provider - notification of new booking
   const providerHtml = createEmailTemplate(
     'New Booking Received 📅',
     `<p>Hello ${booking.provider_name || 'Provider'},</p>

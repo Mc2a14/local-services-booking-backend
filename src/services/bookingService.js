@@ -28,9 +28,15 @@ const createBooking = async (customerId, bookingData) => {
     throw new Error(availability.reason || 'Time slot is not available');
   }
 
-  // Get customer and provider emails for notifications
+  // Get customer and provider emails for notifications (including business name)
   const customerResult = await query('SELECT email, full_name FROM users WHERE id = $1', [customerId]);
-  const providerResult = await query('SELECT email, full_name FROM users WHERE id = $1', [service.provider_id]);
+  const providerResult = await query(
+    `SELECT u.email, u.full_name, p.business_name 
+     FROM users u 
+     LEFT JOIN providers p ON u.id = p.user_id 
+     WHERE u.id = $1`,
+    [service.provider_id]
+  );
 
   // Insert booking
   const result = await query(
@@ -44,13 +50,15 @@ const createBooking = async (customerId, bookingData) => {
   booking.service_title = service.title;
   booking.customer_name = customerResult.rows[0].full_name;
   booking.provider_name = providerResult.rows[0].full_name;
+  const providerBusinessName = providerResult.rows[0].business_name;
 
   // Send confirmation emails
   try {
     await emailService.sendBookingConfirmation(
       booking,
       customerResult.rows[0].email,
-      providerResult.rows[0].email
+      providerResult.rows[0].email,
+      providerBusinessName
     );
   } catch (error) {
     console.error('Failed to send booking confirmation emails:', error);
@@ -91,8 +99,14 @@ const createGuestBooking = async (bookingData) => {
     throw new Error(availability.reason || 'Time slot is not available');
   }
 
-  // Get provider info for notifications
-  const providerResult = await query('SELECT email, full_name FROM users WHERE id = $1', [service.provider_id]);
+  // Get provider info for notifications (including business name)
+  const providerResult = await query(
+    `SELECT u.email, u.full_name, p.business_name 
+     FROM users u 
+     LEFT JOIN providers p ON u.id = p.user_id 
+     WHERE u.id = $1`,
+    [service.provider_id]
+  );
 
   // Insert guest booking (customer_id is NULL)
   const result = await query(
@@ -108,13 +122,15 @@ const createGuestBooking = async (bookingData) => {
   booking.service_title = service.title;
   booking.customer_name = customer_name;
   booking.provider_name = providerResult.rows[0].full_name;
+  const providerBusinessName = providerResult.rows[0].business_name;
 
   // Send confirmation emails
   try {
     await emailService.sendBookingConfirmation(
       booking,
       customer_email,
-      providerResult.rows[0].email
+      providerResult.rows[0].email,
+      providerBusinessName
     );
   } catch (error) {
     console.error('Failed to send booking confirmation emails:', error);
