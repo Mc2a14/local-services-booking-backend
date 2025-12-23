@@ -46,6 +46,21 @@ const runMigrations = async () => {
         console.log('⚠️  Guest bookings migration:', err.message);
       }
     }
+
+    // Run email error field migration
+    try {
+      const emailMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_email_error_field.sql');
+      if (fs.existsSync(emailMigrationPath)) {
+        const emailMigrationSQL = fs.readFileSync(emailMigrationPath, 'utf8');
+        await pool.query(emailMigrationSQL);
+        console.log('✅ Email error field migration completed');
+      }
+    } catch (err) {
+      // Ignore if column already exists
+      if (!err.message.includes('already exists') && err.code !== '42701') {
+        console.log('⚠️  Email error field migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {
