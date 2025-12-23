@@ -1,4 +1,5 @@
 const bookingService = require('../services/bookingService');
+const { query } = require('../db');
 
 // Create a new booking (customer only - requires auth)
 const createBooking = async (req, res) => {
@@ -84,13 +85,36 @@ const createGuestBooking = async (req, res) => {
       customer_phone
     });
 
+    // Get full booking details with service info
+    const fullBookingResult = await query(
+      `SELECT b.*, s.title as service_title, s.price, s.duration_minutes, 
+       p.business_name, u.full_name as provider_name
+       FROM bookings b
+       JOIN services s ON b.service_id = s.id
+       LEFT JOIN providers p ON b.provider_id = p.user_id
+       JOIN users u ON b.provider_id = u.id
+       WHERE b.id = $1`,
+      [booking.id]
+    );
+
+    const fullBooking = fullBookingResult.rows[0] || booking;
+
     res.status(201).json({
       message: 'Booking created successfully. A confirmation email will be sent to your email address.',
       booking: {
-        id: booking.id,
-        service_title: booking.service_title,
-        booking_date: booking.booking_date,
-        status: booking.status
+        id: fullBooking.id,
+        service_id: fullBooking.service_id,
+        service_title: fullBooking.service_title,
+        booking_date: fullBooking.booking_date,
+        status: fullBooking.status,
+        customer_name: fullBooking.customer_name,
+        customer_email: fullBooking.customer_email,
+        customer_phone: fullBooking.customer_phone,
+        notes: fullBooking.notes,
+        price: fullBooking.price,
+        duration_minutes: fullBooking.duration_minutes,
+        business_name: fullBooking.business_name,
+        provider_name: fullBooking.provider_name
       }
     });
   } catch (error) {
