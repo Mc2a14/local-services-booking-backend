@@ -42,40 +42,8 @@ const createTransporter = (providerEmailConfig = null) => {
     }
   }
 
-  // Priority 2: Use system-wide email configuration (fallback)
-  if (process.env.SENDGRID_API_KEY) {
-    return nodemailer.createTransport({
-      service: 'SendGrid',
-      auth: {
-        user: 'apikey',
-        pass: process.env.SENDGRID_API_KEY
-      }
-    });
-  }
-
-  if (process.env.SMTP_HOST) {
-    return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-  }
-
-  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-      }
-    });
-  }
-
-  // If no email config, return null (will log only)
+  // If provider doesn't have email configured, return null (will log only)
+  // No system-wide fallback - each business owner must configure their own email
   return null;
 };
 
@@ -148,22 +116,20 @@ const sendEmail = async (emailData) => {
   const transporter = createTransporter(providerEmailConfig);
   if (transporter) {
     try {
-      // Determine sender email and name
+      // Determine sender email and name - use provider's email
       let senderEmail, senderName;
       
-      // Priority 1: Provider's registered email address (from their user account)
-      // This is what they used to sign up - use it as the "from" address
-      if (fromEmail) {
-        senderEmail = fromEmail; // This is the provider's registered email
-        senderName = fromName || providerEmailConfig?.email_from_name || 'Booking Service';
-      } else if (providerEmailConfig && providerEmailConfig.email_from_address) {
-        // Priority 2: Provider's configured email address (if they set one up)
+      // Use provider's registered email address (from their user account)
+      if (providerEmailConfig && providerEmailConfig.email_from_address) {
         senderEmail = providerEmailConfig.email_from_address;
         senderName = providerEmailConfig.email_from_name || fromName || 'Booking Service';
+      } else if (fromEmail) {
+        senderEmail = fromEmail; // Fallback to provider's registered email
+        senderName = fromName || 'Booking Service';
       } else {
-        // Priority 3: Fallback to system email
-        senderEmail = process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@bookingservice.com';
-        senderName = process.env.EMAIL_FROM_NAME || 'Booking Service';
+        // This shouldn't happen, but just in case
+        senderEmail = 'noreply@bookingservice.com';
+        senderName = 'Booking Service';
       }
       
       // Build mail options

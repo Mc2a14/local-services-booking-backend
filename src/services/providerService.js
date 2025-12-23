@@ -3,7 +3,14 @@ const { encrypt } = require('../utils/encryption');
 
 // Create a new provider
 const createProvider = async (userId, providerData) => {
-  const { business_name, description, phone, address } = providerData;
+  const { business_name, description, phone, address, email_password, email_service_type } = providerData;
+
+  // Get user's email address
+  const userResult = await query('SELECT email, full_name FROM users WHERE id = $1', [userId]);
+  if (userResult.rows.length === 0) {
+    throw new Error('User not found');
+  }
+  const userEmail = userResult.rows[0].email;
 
   // Check if user already has a provider
   const existingProvider = await query('SELECT id FROM providers WHERE user_id = $1', [userId]);
@@ -11,10 +18,35 @@ const createProvider = async (userId, providerData) => {
     throw new Error('User already has a provider profile');
   }
 
-  // Insert provider
+  // Encrypt email password if provided
+  let encryptedPassword = null;
+  if (email_password) {
+    const { encrypt } = require('../utils/encryption');
+    encryptedPassword = encrypt(email_password);
+  }
+
+  // Determine email service type (default to gmail if password provided)
+  const serviceType = email_service_type || (email_password ? 'gmail' : null);
+
+  // Insert provider with email configuration
   const result = await query(
-    'INSERT INTO providers (user_id, business_name, description, phone, address) VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, business_name, description, phone, address, created_at',
-    [userId, business_name, description || null, phone || null, address || null]
+    `INSERT INTO providers (user_id, business_name, description, phone, address, 
+     email_service_type, email_smtp_user, email_smtp_password_encrypted, 
+     email_from_address, email_from_name) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+     RETURNING id, user_id, business_name, description, phone, address, created_at`,
+    [
+      userId, 
+      business_name, 
+      description || null, 
+      phone || null, 
+      address || null,
+      serviceType,
+      email_password ? userEmail : null, // Use user's email as SMTP user
+      encryptedPassword,
+      userEmail, // From address is their registered email
+      business_name // From name is their business name
+    ]
   );
 
   return result.rows[0];
@@ -36,11 +68,43 @@ const getProviderByUserId = async (userId) => {
 
 // Update provider by user ID
 const updateProvider = async (userId, providerData) => {
-  const { business_name, description, phone, address } = providerData;
+  const { business_name, description, phone, address, email_password, email_service_type } = providerData;
+
+  // Get user's email
+  const userResult = await query('SELECT email FROM users WHERE id = $1', [userId]);
+  const userEmail = userResult.rows[0]?.email;
+
+  // Encrypt password if provided
+  let encryptedPassword = null;
+  if (email_password) {
+    encryptedPassword = encrypt(email_password);
+  }
 
   const result = await query(
-    'UPDATE providers SET business_name = COALESCE($1, business_name), description = COALESCE($2, description), phone = COALESCE($3, phone), address = COALESCE($4, address) WHERE user_id = $5 RETURNING id, user_id, business_name, description, phone, address, created_at',
-    [business_name || null, description || null, phone || null, address || null, userId]
+    `UPDATE providers 
+     SET business_name = COALESCE($1, business_name), 
+         description = COALESCE($2, description), 
+         phone = COALESCE($3, phone), 
+         address = COALESCE($4, address),
+         email_service_type = COALESCE($5, email_service_type),
+         email_smtp_user = COALESCE($6, email_smtp_user),
+         email_smtp_password_encrypted = COALESCE($7, email_smtp_password_encrypted),
+         email_from_address = COALESCE($8, email_from_address),
+         email_from_name = COALESCE($9, email_from_name)
+     WHERE user_id = $10 
+     RETURNING id, user_id, business_name, description, phone, address, created_at`,
+    [
+      business_name || null, 
+      description || null, 
+      phone || null, 
+      address || null,
+      email_service_type || null,
+      email_password ? userEmail : null,
+      encryptedPassword,
+      userEmail || null,
+      business_name || null,
+      userId
+    ]
   );
 
   if (result.rows.length === 0) {

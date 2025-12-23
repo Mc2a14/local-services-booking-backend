@@ -3,18 +3,23 @@ const providerService = require('../services/providerService');
 // Create a new provider
 const createProvider = async (req, res) => {
   try {
-    const { business_name, description, phone, address } = req.body;
+    const { business_name, description, phone, address, email_password, email_service_type } = req.body;
 
     // Validation
     if (!business_name) {
       return res.status(400).json({ error: 'business_name is required' });
     }
 
+    // Email password is optional - if not provided, emails won't be sent (just logged)
+    // If provided, we'll use it to send emails from their account
+
     const provider = await providerService.createProvider(req.user.id, {
       business_name,
       description,
       phone,
-      address
+      address,
+      email_password, // App password for their email (Gmail App Password, etc.)
+      email_service_type: email_service_type || 'gmail' // Default to Gmail
     });
 
     res.status(201).json({
@@ -52,13 +57,15 @@ const getMyProvider = async (req, res) => {
 // Update current user's provider profile
 const updateMyProvider = async (req, res) => {
   try {
-    const { business_name, description, phone, address } = req.body;
+    const { business_name, description, phone, address, email_password, email_service_type } = req.body;
 
     const provider = await providerService.updateProvider(req.user.id, {
       business_name,
       description,
       phone,
-      address
+      address,
+      email_password, // Can update email password if needed
+      email_service_type
     });
 
     res.json({
