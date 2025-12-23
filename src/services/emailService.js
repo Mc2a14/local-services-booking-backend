@@ -151,14 +151,19 @@ const sendEmail = async (emailData) => {
       // Determine sender email and name
       let senderEmail, senderName;
       
-      if (providerEmailConfig && providerEmailConfig.email_from_address) {
-        // Use provider's configured email address
+      // Priority 1: Provider's registered email address (from their user account)
+      // This is what they used to sign up - use it as the "from" address
+      if (fromEmail) {
+        senderEmail = fromEmail; // This is the provider's registered email
+        senderName = fromName || providerEmailConfig?.email_from_name || 'Booking Service';
+      } else if (providerEmailConfig && providerEmailConfig.email_from_address) {
+        // Priority 2: Provider's configured email address (if they set one up)
         senderEmail = providerEmailConfig.email_from_address;
         senderName = providerEmailConfig.email_from_name || fromName || 'Booking Service';
       } else {
-        // Fallback to system email or provided email
-        senderEmail = fromEmail || process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@bookingservice.com';
-        senderName = fromName || process.env.EMAIL_FROM_NAME || 'Booking Service';
+        // Priority 3: Fallback to system email
+        senderEmail = process.env.EMAIL_FROM || process.env.GMAIL_USER || 'noreply@bookingservice.com';
+        senderName = process.env.EMAIL_FROM_NAME || 'Booking Service';
       }
       
       // Build mail options
@@ -171,11 +176,12 @@ const sendEmail = async (emailData) => {
         html: html || createEmailTemplate(subject, body.replace(/\n/g, '<br>'))
       };
 
-      // Add reply-to to business owner's email (always use provider's email for replies)
+      // Always set reply-to to business owner's registered email
+      // This way customers can reply directly to the business owner
       if (replyTo) {
-        mailOptions.replyTo = replyTo;
+        mailOptions.replyTo = replyTo; // Usually the provider's registered email
       } else if (fromEmail) {
-        mailOptions.replyTo = fromEmail;
+        mailOptions.replyTo = fromEmail; // Provider's registered email from account
       } else if (providerEmailConfig && providerEmailConfig.email_from_address) {
         mailOptions.replyTo = providerEmailConfig.email_from_address;
       }
