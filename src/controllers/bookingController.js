@@ -1,0 +1,164 @@
+const bookingService = require('../services/bookingService');
+
+// Create a new booking (customer only)
+const createBooking = async (req, res) => {
+  try {
+    const { service_id, booking_date, notes } = req.body;
+
+    // Validation
+    if (!service_id || !booking_date) {
+      return res.status(400).json({ error: 'service_id and booking_date are required' });
+    }
+
+    // Validate booking_date is in the future
+    const bookingDate = new Date(booking_date);
+    if (isNaN(bookingDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid booking_date format' });
+    }
+
+    if (bookingDate < new Date()) {
+      return res.status(400).json({ error: 'Booking date must be in the future' });
+    }
+
+    const booking = await bookingService.createBooking(req.user.id, {
+      service_id,
+      booking_date,
+      notes
+    });
+
+    res.status(201).json({
+      message: 'Booking created successfully',
+      booking
+    });
+  } catch (error) {
+    console.error('Create booking error:', error);
+    
+    if (error.message === 'Service not found' || error.message === 'Service is not available') {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    if (error.message.includes('not available') || error.message.includes('Time slot')) {
+      return res.status(400).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get booking by ID
+const getBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await bookingService.getBookingById(id, req.user.id, req.user.user_type);
+
+    res.json({ booking });
+  } catch (error) {
+    console.error('Get booking error:', error);
+    
+    if (error.message === 'Booking not found') {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get all bookings for current customer
+const getMyBookings = async (req, res) => {
+  try {
+    const bookings = await bookingService.getBookingsByCustomerId(req.user.id);
+
+    res.json({ bookings });
+  } catch (error) {
+    console.error('Get bookings error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Get all bookings for current provider
+const getProviderBookings = async (req, res) => {
+  try {
+    // Verify provider exists
+    const providerService = require('../services/providerService');
+    await providerService.getProviderByUserId(req.user.id);
+    
+    const bookings = await bookingService.getBookingsByProviderId(req.user.id);
+
+    res.json({ bookings });
+  } catch (error) {
+    console.error('Get provider bookings error:', error);
+    
+    if (error.message === 'Provider not found') {
+      return res.status(404).json({ error: 'Provider profile not found' });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Update booking status (provider only)
+const updateBookingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'status is required' });
+    }
+
+    // Verify provider exists
+    const providerService = require('../services/providerService');
+    await providerService.getProviderByUserId(req.user.id);
+    
+    const booking = await bookingService.updateBookingStatus(id, req.user.id, status);
+
+    res.json({
+      message: 'Booking status updated successfully',
+      booking
+    });
+  } catch (error) {
+    console.error('Update booking status error:', error);
+    
+    if (error.message === 'Booking not found or unauthorized' || error.message === 'Invalid booking status') {
+      return res.status(400).json({ error: error.message });
+    }
+    
+    if (error.message === 'Provider not found') {
+      return res.status(404).json({ error: 'Provider profile not found' });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Cancel booking (customer only)
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const booking = await bookingService.cancelBooking(id, req.user.id);
+
+    res.json({
+      message: 'Booking cancelled successfully',
+      booking
+    });
+  } catch (error) {
+    console.error('Cancel booking error:', error);
+    
+    if (error.message === 'Booking not found or unauthorized') {
+      return res.status(404).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = {
+  createBooking,
+  getBooking,
+  getMyBookings,
+  getProviderBookings,
+  updateBookingStatus,
+  cancelBooking
+};
+

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { Pool } = require('pg');
 
 // PostgreSQL connection pool configuration
@@ -17,4 +18,5 @@ pool.on('error', (err) => {
 });
 
 module.exports = pool;
+
 
