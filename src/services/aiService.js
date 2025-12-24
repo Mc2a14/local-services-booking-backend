@@ -1,6 +1,7 @@
 const config = require('../config');
 const businessInfoService = require('./businessInfoService');
 const serviceService = require('./serviceService');
+const availabilityService = require('./availabilityService');
 const { query } = require('../db');
 
 // Validate OpenAI API key
@@ -11,11 +12,46 @@ const validateOpenAIKey = () => {
   return true;
 };
 
+// Format availability schedule into readable business hours
+const formatBusinessHours = (availability) => {
+  if (!availability || availability.length === 0) {
+    return null;
+  }
+
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const hoursByDay = {};
+
+  // Group hours by day
+  availability.forEach(slot => {
+    if (slot.is_available) {
+      const dayName = days[slot.day_of_week];
+      if (!hoursByDay[dayName]) {
+        hoursByDay[dayName] = [];
+      }
+      hoursByDay[dayName].push(`${slot.start_time} - ${slot.end_time}`);
+    }
+  });
+
+  // Format as readable string
+  let hoursText = '';
+  Object.keys(hoursByDay).forEach(day => {
+    hoursText += `${day}: ${hoursByDay[day].join(', ')}\n`;
+  });
+
+  return hoursText.trim();
+};
+
 // Get business context for AI
 const getBusinessContext = async (providerId) => {
   try {
     const businessInfo = await businessInfoService.getBusinessInfoForAI(providerId);
-    const services = await serviceService.getServicesByProviderId(providerId);
+    
+    // Get provider's user_id to fetch availability (availability uses user_id, not provider UUID)
+    const providerResult = await query('SELECT user_id FROM providers WHERE id = $1', [providerId]);
+    const userId = providerResult.rows[0]?.user_id;
+    
+    const services = await serviceService.getServicesByProviderId(userId);
+    const availability = userId ? await availabilityService.getAvailability(userId) : [];
 
     // Build context string
     let context = `Business Information:\n`;
@@ -29,9 +65,15 @@ const getBusinessContext = async (providerId) => {
     if (businessInfo.address) {
       context += `Address: ${businessInfo.address}\n`;
     }
-    if (businessInfo.business_hours) {
+    
+    // Add business hours - prioritize availability schedule, fallback to business_info
+    const formattedHours = formatBusinessHours(availability);
+    if (formattedHours) {
+      context += `Business Hours:\n${formattedHours}\n`;
+    } else if (businessInfo.business_hours) {
       context += `Business Hours: ${businessInfo.business_hours}\n`;
     }
+    
     if (businessInfo.location_details) {
       context += `Location Details: ${businessInfo.location_details}\n`;
     }
