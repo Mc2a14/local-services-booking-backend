@@ -58,7 +58,7 @@ const getMyProvider = async (req, res) => {
 // Update current user's provider profile
 const updateMyProvider = async (req, res) => {
   try {
-    const { business_name, description, phone, address, email_password, email_service_type } = req.body;
+    const { business_name, description, phone, address, email_password, email_service_type, business_slug } = req.body;
 
     const provider = await providerService.updateProvider(req.user.id, {
       business_name,
@@ -66,7 +66,8 @@ const updateMyProvider = async (req, res) => {
       phone,
       address,
       email_password, // Can update email password if needed
-      email_service_type
+      email_service_type,
+      business_slug // Allow updating slug
     });
 
     res.json({

@@ -128,7 +128,7 @@ const getProviderBySlug = async (slug) => {
 
 // Update provider by user ID
 const updateProvider = async (userId, providerData) => {
-  const { business_name, description, phone, address, email_password, email_service_type } = providerData;
+  const { business_name, description, phone, address, email_password, email_service_type, business_slug } = providerData;
 
   // Get user's email
   const userResult = await query('SELECT email FROM users WHERE id = $1', [userId]);
