@@ -9,29 +9,42 @@ const app = express();
 // CORS configuration - allow frontend domain and handle preflight requests
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests) or from the frontend domain
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Allow requests from localhost (development)
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    
+    // Allow requests from Railway domains
+    if (origin.includes('.up.railway.app') || origin.includes('.railway.app')) {
+      return callback(null, true);
+    }
+    
+    // Allow requests from specific frontend domain
     const allowedOrigins = [
-      'https://local-services-booking-frontend-production.up.railway.app',
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:8080'
+      'https://local-services-booking-frontend-production.up.railway.app'
     ];
     
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      // For development, allow all origins
-      if (process.env.NODE_ENV !== 'production') {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    
+    // For development, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // 24 hours
 };
 
 // Middleware
