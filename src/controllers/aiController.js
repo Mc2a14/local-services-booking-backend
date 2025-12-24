@@ -4,24 +4,28 @@ const providerService = require('../services/providerService');
 // Handle AI chat question
 const chat = async (req, res) => {
   try {
-    const { question, provider_id } = req.body;
+    const { question, provider_id, business_slug } = req.body;
 
     // Validation
     if (!question) {
       return res.status(400).json({ error: 'question is required' });
     }
 
-    if (!provider_id) {
-      return res.status(400).json({ error: 'provider_id is required' });
-    }
-
-    // Verify provider exists and get provider UUID
+    // Support both provider_id (for authenticated) and business_slug (for public)
     let provider;
     try {
-      provider = await providerService.getProviderByUserId(provider_id);
+      if (business_slug) {
+        // Public access via business slug
+        provider = await providerService.getProviderBySlug(business_slug);
+      } else if (provider_id) {
+        // Authenticated access via provider user ID
+        provider = await providerService.getProviderByUserId(provider_id);
+      } else {
+        return res.status(400).json({ error: 'Either provider_id or business_slug is required' });
+      }
     } catch (error) {
-      if (error.message === 'Provider not found') {
-        return res.status(404).json({ error: 'Provider not found' });
+      if (error.message === 'Provider not found' || error.message === 'Business not found') {
+        return res.status(404).json({ error: 'Business not found' });
       }
       throw error;
     }
@@ -32,7 +36,7 @@ const chat = async (req, res) => {
     res.json({
       question,
       response,
-      provider_id
+      business_name: provider.business_name
     });
   } catch (error) {
     console.error('AI chat error:', error);
