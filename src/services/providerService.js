@@ -34,7 +34,7 @@ const generateSlug = async (businessName) => {
 
 // Create a new provider
 const createProvider = async (userId, providerData) => {
-  const { business_name, description, phone, address, email_password, email_service_type, business_slug } = providerData;
+  const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url } = providerData;
 
   // Get user's email address
   const userResult = await query('SELECT email, full_name FROM users WHERE id = $1', [userId]);

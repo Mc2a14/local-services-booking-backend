@@ -100,8 +100,8 @@ const getBusinessContext = async (providerId, businessSlug = null) => {
     
     if (slug) {
       context += `\nBooking Information:\n`;
-      context += `Customers can book appointments directly on this website by selecting a service from the list above.\n`;
-      context += `This is the preferred method for booking appointments.\n`;
+      context += `This is the business's official booking website. Customers can book appointments directly on this page by selecting a service from the list above.\n`;
+      context += `Online booking through this website is the preferred and easiest method for customers to schedule appointments.\n`;
     }
 
     return context;
@@ -132,9 +132,10 @@ Answer customer questions based on the business information provided below.
 Be friendly, concise, and accurate. 
 
 CRITICAL INSTRUCTIONS FOR BOOKING APPOINTMENTS:
-- When customers ask how to book an appointment, schedule a service, or make a booking, ALWAYS direct them to book through this website
+- When customers ask how to book an appointment, schedule a service, or make a booking, ALWAYS direct them to book through THIS website (the page they are currently on)
 - Tell them they can book by selecting a service from the list shown on this page
-- Explain that online booking is the preferred and easiest method
+- Explain that online booking through this website is the preferred and easiest method
+- Refer to "this website" or "this page" when talking about booking - this IS the business's official booking website
 - Only mention calling the business as a secondary option if they need immediate assistance or have special requests
 - Do NOT suggest calling as the primary way to book appointments
 
