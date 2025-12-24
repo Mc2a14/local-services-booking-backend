@@ -72,18 +72,19 @@ const createProvider = async (userId, providerData) => {
 
   // Insert provider with email configuration and slug
   const result = await query(
-    `INSERT INTO providers (user_id, business_name, business_slug, description, phone, address, 
+    `INSERT INTO providers (user_id, business_name, business_slug, description, phone, address, business_image_url,
      email_service_type, email_smtp_user, email_smtp_password_encrypted, 
      email_from_address, email_from_name) 
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
-     RETURNING id, user_id, business_name, business_slug, description, phone, address, created_at`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
+     RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at`,
     [
       userId, 
       business_name,
-      slug, // Add slug
+      slug,
       description || null, 
       phone || null, 
       address || null,
+      business_image_url || null,
       serviceType,
       email_password ? userEmail : null,
       encryptedPassword,
