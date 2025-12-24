@@ -7,6 +7,7 @@ const businessInfoRoutes = require('./businessInfo');
 const aiRoutes = require('./ai');
 const availabilityRoutes = require('./availability');
 const reviewRoutes = require('./reviews');
+const publicRoutes = require('./public');
 
 const router = express.Router();
 
@@ -17,8 +18,10 @@ router.use('/services', serviceRoutes);
 router.use('/bookings', bookingRoutes);
 router.use('/business-info', businessInfoRoutes);
 router.use('/ai', aiRoutes);
+router.use('/public', publicRoutes);
 router.use('/availability', availabilityRoutes);
 router.use('/reviews', reviewRoutes);
+router.use('/public', publicRoutes);
 
 module.exports = router;
 

@@ -3,7 +3,7 @@ const providerService = require('../services/providerService');
 // Create a new provider
 const createProvider = async (req, res) => {
   try {
-    const { business_name, description, phone, address, email_password, email_service_type } = req.body;
+    const { business_name, description, phone, address, email_password, email_service_type, business_slug } = req.body;
 
     // Validation
     if (!business_name) {
@@ -19,7 +19,8 @@ const createProvider = async (req, res) => {
       phone,
       address,
       email_password, // App password for their email (Gmail App Password, etc.)
-      email_service_type: email_service_type || 'gmail' // Default to Gmail
+      email_service_type: email_service_type || 'gmail', // Default to Gmail
+      business_slug // Optional - will be auto-generated from business_name if not provided
     });
 
     res.status(201).json({

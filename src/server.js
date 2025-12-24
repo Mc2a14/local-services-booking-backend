@@ -76,6 +76,21 @@ const runMigrations = async () => {
         console.log('⚠️  Provider email config migration:', err.message);
       }
     }
+
+    // Run business slug migration
+    try {
+      const businessSlugMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_business_slug.sql');
+      if (fs.existsSync(businessSlugMigrationPath)) {
+        const businessSlugMigrationSQL = fs.readFileSync(businessSlugMigrationPath, 'utf8');
+        await pool.query(businessSlugMigrationSQL);
+        console.log('✅ Business slug migration completed');
+      }
+    } catch (err) {
+      // Ignore if columns already exist
+      if (!err.message.includes('already exists') && err.code !== '42701') {
+        console.log('⚠️  Business slug migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {
