@@ -91,6 +91,21 @@ const runMigrations = async () => {
         console.log('⚠️  Business slug migration:', err.message);
       }
     }
+
+    // Run business image migration
+    try {
+      const businessImageMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_business_image.sql');
+      if (fs.existsSync(businessImageMigrationPath)) {
+        const businessImageMigrationSQL = fs.readFileSync(businessImageMigrationPath, 'utf8');
+        await pool.query(businessImageMigrationSQL);
+        console.log('✅ Business image migration completed');
+      }
+    } catch (err) {
+      // Ignore if columns already exist
+      if (!err.message.includes('already exists') && err.code !== '42701') {
+        console.log('⚠️  Business image migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {

@@ -1,6 +1,7 @@
 const providerService = require('../services/providerService');
 const serviceService = require('../services/serviceService');
 const reviewService = require('../services/reviewService');
+const { query } = require('../db');
 
 // Get public business page by slug
 const getBusinessBySlug = async (req, res) => {
@@ -25,6 +26,27 @@ const getBusinessBySlug = async (req, res) => {
       })
     );
 
+    // Get recent reviews/testimonials (last 10 reviews)
+    const reviewsResult = await query(
+      `SELECT r.*, u.full_name as customer_name, s.title as service_title
+       FROM reviews r
+       JOIN users u ON r.customer_id = u.id
+       JOIN services s ON r.service_id = s.id
+       WHERE r.provider_id = $1
+       ORDER BY r.created_at DESC
+       LIMIT 10`,
+      [provider.user_id]
+    );
+
+    const testimonials = reviewsResult.rows.map(review => ({
+      id: review.id,
+      customer_name: review.customer_name,
+      service_title: review.service_title,
+      rating: review.rating,
+      comment: review.comment,
+      created_at: review.created_at
+    }));
+
     res.json({
       business: {
         id: provider.id,
@@ -33,9 +55,11 @@ const getBusinessBySlug = async (req, res) => {
         description: provider.description,
         phone: provider.phone,
         address: provider.address,
+        business_image_url: provider.business_image_url,
         owner_name: provider.owner_name
       },
-      services: servicesWithRatings
+      services: servicesWithRatings,
+      testimonials: testimonials
     });
   } catch (error) {
     console.error('Get business by slug error:', error);

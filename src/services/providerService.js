@@ -98,7 +98,7 @@ const createProvider = async (userId, providerData) => {
 // Get provider by user ID
 const getProviderByUserId = async (userId) => {
   const result = await query(
-    'SELECT id, user_id, business_name, business_slug, description, phone, address, created_at FROM providers WHERE user_id = $1',
+    'SELECT id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at FROM providers WHERE user_id = $1',
     [userId]
   );
 
@@ -128,7 +128,7 @@ const getProviderBySlug = async (slug) => {
 
 // Update provider by user ID
 const updateProvider = async (userId, providerData) => {
-  const { business_name, description, phone, address, email_password, email_service_type, business_slug } = providerData;
+  const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url } = providerData;
 
   // Get user's email
   const userResult = await query('SELECT email FROM users WHERE id = $1', [userId]);
@@ -155,19 +155,21 @@ const updateProvider = async (userId, providerData) => {
          phone = COALESCE($3, phone), 
          address = COALESCE($4, address),
          business_slug = CASE WHEN $5 IS NOT NULL THEN $5 ELSE business_slug END,
-         email_service_type = COALESCE($6, email_service_type),
-         email_smtp_user = COALESCE($7, email_smtp_user),
-         email_smtp_password_encrypted = COALESCE($8, email_smtp_password_encrypted),
-         email_from_address = COALESCE($9, email_from_address),
-         email_from_name = COALESCE($10, email_from_name)
-     WHERE user_id = $11 
-     RETURNING id, user_id, business_name, business_slug, description, phone, address, created_at`,
+         business_image_url = COALESCE($6, business_image_url),
+         email_service_type = COALESCE($7, email_service_type),
+         email_smtp_user = COALESCE($8, email_smtp_user),
+         email_smtp_password_encrypted = COALESCE($9, email_smtp_password_encrypted),
+         email_from_address = COALESCE($10, email_from_address),
+         email_from_name = COALESCE($11, email_from_name)
+     WHERE user_id = $12 
+     RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at`,
     [
       business_name || null, 
       description || null, 
       phone || null, 
       address || null,
       business_slug || null,
+      business_image_url || null,
       email_service_type || null,
       email_password ? userEmail : null,
       encryptedPassword,
