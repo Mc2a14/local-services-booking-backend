@@ -155,7 +155,7 @@ const updateProvider = async (userId, providerData) => {
          description = COALESCE($2, description), 
          phone = COALESCE($3, phone), 
          address = COALESCE($4, address),
-         business_slug = CASE WHEN $5 IS NOT NULL THEN $5 ELSE business_slug END,
+         business_slug = COALESCE($5::VARCHAR, business_slug),
          business_image_url = COALESCE($6, business_image_url),
          email_service_type = COALESCE($7, email_service_type),
          email_smtp_user = COALESCE($8, email_smtp_user),
