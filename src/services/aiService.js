@@ -42,13 +42,14 @@ const formatBusinessHours = (availability) => {
 };
 
 // Get business context for AI
-const getBusinessContext = async (providerId) => {
+const getBusinessContext = async (providerId, businessSlug = null) => {
   try {
     const businessInfo = await businessInfoService.getBusinessInfoForAI(providerId);
     
-    // Get provider's user_id to fetch availability (availability uses user_id, not provider UUID)
-    const providerResult = await query('SELECT user_id FROM providers WHERE id = $1', [providerId]);
+    // Get provider's user_id and business_slug to fetch availability (availability uses user_id, not provider UUID)
+    const providerResult = await query('SELECT user_id, business_slug FROM providers WHERE id = $1', [providerId]);
     const userId = providerResult.rows[0]?.user_id;
+    const slug = businessSlug || providerResult.rows[0]?.business_slug;
     
     const services = await serviceService.getServicesByProviderId(userId);
     const availability = userId ? await availabilityService.getAvailability(userId) : [];
@@ -96,6 +97,12 @@ const getBusinessContext = async (providerId) => {
         }
       });
     }
+    
+    if (slug) {
+      context += `\nBooking Information:\n`;
+      context += `Customers can book appointments directly on this website by selecting a service from the list above.\n`;
+      context += `This is the preferred method for booking appointments.\n`;
+    }
 
     return context;
   } catch (error) {
@@ -105,12 +112,12 @@ const getBusinessContext = async (providerId) => {
 };
 
 // Generate AI response using OpenAI
-const generateAIResponse = async (question, providerId) => {
+const generateAIResponse = async (question, providerId, businessSlug = null) => {
   validateOpenAIKey();
 
   try {
     // Get business context
-    const context = await getBusinessContext(providerId);
+    const context = await getBusinessContext(providerId, businessSlug);
 
     // Get current date/time for context
     const now = new Date();
@@ -123,6 +130,13 @@ const generateAIResponse = async (question, providerId) => {
     const systemPrompt = `You are a helpful customer service assistant for a local business. 
 Answer customer questions based on the business information provided below. 
 Be friendly, concise, and accurate. 
+
+CRITICAL INSTRUCTIONS FOR BOOKING APPOINTMENTS:
+- When customers ask how to book an appointment, schedule a service, or make a booking, ALWAYS direct them to book through this website
+- Tell them they can book by selecting a service from the list shown on this page
+- Explain that online booking is the preferred and easiest method
+- Only mention calling the business as a secondary option if they need immediate assistance or have special requests
+- Do NOT suggest calling as the primary way to book appointments
 
 CRITICAL INSTRUCTIONS FOR TIME AND HOURS:
 - Business hours are provided in 24-hour format (e.g., 09:00 means 9:00 AM, 17:00 means 5:00 PM)

@@ -30,8 +30,8 @@ const chat = async (req, res) => {
       throw error;
     }
 
-    // Generate AI response (use provider.id which is the UUID)
-    const response = await aiService.generateAIResponse(question, provider.id);
+    // Generate AI response (use provider.id which is the UUID, pass business_slug for booking context)
+    const response = await aiService.generateAIResponse(question, provider.id, provider.business_slug);
 
     res.json({
       question,
