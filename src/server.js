@@ -106,6 +106,21 @@ const runMigrations = async () => {
         console.log('⚠️  Business image migration:', err.message);
       }
     }
+
+    // Fix business image column type (change VARCHAR(500) to TEXT if needed)
+    try {
+      const fixBusinessImageTypePath = path.join(__dirname, 'db', 'migrations', 'fix_business_image_type.sql');
+      if (fs.existsSync(fixBusinessImageTypePath)) {
+        const fixBusinessImageTypeSQL = fs.readFileSync(fixBusinessImageTypePath, 'utf8');
+        await pool.query(fixBusinessImageTypeSQL);
+        console.log('✅ Business image type fix migration completed');
+      }
+    } catch (err) {
+      // Ignore if already TEXT type or column doesn't exist
+      if (!err.message.includes('type') && !err.message.includes('does not exist') && err.code !== '42704') {
+        console.log('⚠️  Business image type fix migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {
