@@ -140,24 +140,34 @@ const updateProvider = async (userId, providerData) => {
     encryptedPassword = encrypt(email_password);
   }
 
+  // Handle slug update - only if provided and doesn't conflict
+  if (business_slug !== undefined && business_slug !== null && business_slug !== '') {
+    const existing = await query('SELECT id FROM providers WHERE business_slug = $1 AND user_id != $2', [business_slug, userId]);
+    if (existing.rows.length > 0) {
+      throw new Error('This business URL is already taken. Please choose another.');
+    }
+  }
+
   const result = await query(
     `UPDATE providers 
      SET business_name = COALESCE($1, business_name), 
          description = COALESCE($2, description), 
          phone = COALESCE($3, phone), 
          address = COALESCE($4, address),
-         email_service_type = COALESCE($5, email_service_type),
-         email_smtp_user = COALESCE($6, email_smtp_user),
-         email_smtp_password_encrypted = COALESCE($7, email_smtp_password_encrypted),
-         email_from_address = COALESCE($8, email_from_address),
-         email_from_name = COALESCE($9, email_from_name)
-     WHERE user_id = $10 
-     RETURNING id, user_id, business_name, description, phone, address, created_at`,
+         business_slug = CASE WHEN $5 IS NOT NULL THEN $5 ELSE business_slug END,
+         email_service_type = COALESCE($6, email_service_type),
+         email_smtp_user = COALESCE($7, email_smtp_user),
+         email_smtp_password_encrypted = COALESCE($8, email_smtp_password_encrypted),
+         email_from_address = COALESCE($9, email_from_address),
+         email_from_name = COALESCE($10, email_from_name)
+     WHERE user_id = $11 
+     RETURNING id, user_id, business_name, business_slug, description, phone, address, created_at`,
     [
       business_name || null, 
       description || null, 
       phone || null, 
       address || null,
+      business_slug || null,
       email_service_type || null,
       email_password ? userEmail : null,
       encryptedPassword,
