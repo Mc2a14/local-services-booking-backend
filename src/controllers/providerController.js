@@ -77,12 +77,21 @@ const updateMyProvider = async (req, res) => {
     });
   } catch (error) {
     console.error('Update provider error:', error);
+    console.error('Error stack:', error.stack);
     
     if (error.message === 'Provider not found') {
       return res.status(404).json({ error: error.message });
     }
     
-    res.status(500).json({ error: 'Internal server error' });
+    // Return more detailed error in development, generic in production
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? error.message 
+      : 'Internal server error';
+    
+    res.status(500).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

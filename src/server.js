@@ -107,19 +107,17 @@ const runMigrations = async () => {
       }
     }
 
-    // Fix business image column type (change VARCHAR(500) to TEXT if needed)
+    // Fix all image column types (change VARCHAR to TEXT if needed)
     try {
-      const fixBusinessImageTypePath = path.join(__dirname, 'db', 'migrations', 'fix_business_image_type.sql');
-      if (fs.existsSync(fixBusinessImageTypePath)) {
-        const fixBusinessImageTypeSQL = fs.readFileSync(fixBusinessImageTypePath, 'utf8');
-        await pool.query(fixBusinessImageTypeSQL);
-        console.log('✅ Business image type fix migration completed');
+      const fixImageColumnsPath = path.join(__dirname, 'db', 'migrations', 'fix_all_image_columns_to_text.sql');
+      if (fs.existsSync(fixImageColumnsPath)) {
+        const fixImageColumnsSQL = fs.readFileSync(fixImageColumnsPath, 'utf8');
+        await pool.query(fixImageColumnsSQL);
+        console.log('✅ Image columns type fix migration completed');
       }
     } catch (err) {
-      // Ignore if already TEXT type or column doesn't exist
-      if (!err.message.includes('type') && !err.message.includes('does not exist') && err.code !== '42704') {
-        console.log('⚠️  Business image type fix migration:', err.message);
-      }
+      // Log but don't fail - this is a data type fix
+      console.log('⚠️  Image columns type fix migration:', err.message);
     }
     
     console.log('✅ Database migrations completed successfully');
