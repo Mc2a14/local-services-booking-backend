@@ -114,8 +114,9 @@ const generateAIResponse = async (question, providerId) => {
 
     // Prepare the prompt
     const systemPrompt = `You are a helpful customer service assistant for a local business. 
-Answer customer questions based on the business information provided. 
+Answer customer questions based on the business information provided below. 
 Be friendly, concise, and accurate. 
+IMPORTANT: Always refer to the business hours provided in the Business Information section when answering questions about working hours, availability, or when the business is open.
 If you don't know the answer based on the provided information, politely say so and suggest they contact the business directly.
 Always be professional and helpful.`;
 
@@ -124,7 +125,10 @@ ${context}
 
 Customer Question: ${question}
 
-Please provide a helpful answer based on the business information above.`;
+Please provide a helpful answer based on the business information above. When answering about hours, always use the Business Hours information from above.`;
+
+    // Log context for debugging (remove in production if needed)
+    console.log('AI Context being sent:', context.substring(0, 500) + '...');
 
     // Call OpenAI API
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
