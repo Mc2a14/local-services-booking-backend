@@ -19,8 +19,10 @@ router.use('/bookings', bookingRoutes);
 router.use('/business-info', businessInfoRoutes);
 router.use('/ai', aiRoutes);
 router.use('/public', publicRoutes);
+router.use('/faqs', faqRoutes);
 router.use('/availability', availabilityRoutes);
 router.use('/reviews', reviewRoutes);
+router.use('/faqs', faqRoutes);
 router.use('/public', publicRoutes);
 
 module.exports = router;

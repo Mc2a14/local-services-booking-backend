@@ -2,6 +2,7 @@ const config = require('../config');
 const businessInfoService = require('./businessInfoService');
 const serviceService = require('./serviceService');
 const availabilityService = require('./availabilityService');
+const faqService = require('./faqService');
 const { query } = require('../db');
 
 // Validate OpenAI API key
@@ -53,6 +54,7 @@ const getBusinessContext = async (providerId, businessSlug = null) => {
     
     const services = await serviceService.getServicesByProviderId(userId);
     const availability = userId ? await availabilityService.getAvailability(userId) : [];
+    const faqs = await faqService.getFAQsByProviderId(providerId, true); // Get active FAQs only
 
     // Build context string
     let context = `Business Information:\n`;
@@ -102,6 +104,11 @@ const getBusinessContext = async (providerId, businessSlug = null) => {
       context += `\nBooking Information:\n`;
       context += `This is the business's official booking website. Customers can book appointments directly on this page by selecting a service from the list above.\n`;
       context += `Online booking through this website is the preferred and easiest method for customers to schedule appointments.\n`;
+    }
+
+    // Add FAQs to context
+    if (faqs.length > 0) {
+      context += faqService.formatFAQsForAI(faqs);
     }
 
     return context;

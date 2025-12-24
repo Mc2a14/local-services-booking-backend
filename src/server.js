@@ -119,6 +119,21 @@ const runMigrations = async () => {
       // Log but don't fail - this is a data type fix
       console.log('⚠️  Image columns type fix migration:', err.message);
     }
+
+    // Run FAQs table migration
+    try {
+      const faqsMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_faqs_table.sql');
+      if (fs.existsSync(faqsMigrationPath)) {
+        const faqsMigrationSQL = fs.readFileSync(faqsMigrationPath, 'utf8');
+        await pool.query(faqsMigrationSQL);
+        console.log('✅ FAQs table migration completed');
+      }
+    } catch (err) {
+      // Ignore if table already exists
+      if (!err.message.includes('already exists') && err.code !== '42P07') {
+        console.log('⚠️  FAQs table migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {
