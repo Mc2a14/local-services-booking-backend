@@ -112,20 +112,47 @@ const generateAIResponse = async (question, providerId) => {
     // Get business context
     const context = await getBusinessContext(providerId);
 
+    // Get current date/time for context
+    const now = new Date();
+    const currentDate = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const currentHour24 = now.getHours();
+    const currentDayOfWeek = now.getDay(); // 0=Sunday, 6=Saturday
+
     // Prepare the prompt
     const systemPrompt = `You are a helpful customer service assistant for a local business. 
 Answer customer questions based on the business information provided below. 
 Be friendly, concise, and accurate. 
-IMPORTANT: Always refer to the business hours provided in the Business Information section when answering questions about working hours, availability, or when the business is open.
+
+CRITICAL INSTRUCTIONS FOR TIME AND HOURS:
+- Business hours are provided in 24-hour format (e.g., 09:00 means 9:00 AM, 17:00 means 5:00 PM)
+- 11am = 11:00 in 24-hour format
+- 11pm = 23:00 in 24-hour format
+- When checking if a time is within business hours, convert AM/PM to 24-hour format for comparison
+- Example: If hours are 09:00-17:00, then 11am (11:00) IS within business hours
+- Always check the Business Hours section to determine if a requested time falls within operating hours
+- When asked about availability at a specific time, check if that time is within the business hours for that day
+
 If you don't know the answer based on the provided information, politely say so and suggest they contact the business directly.
 Always be professional and helpful.`;
 
-    const userPrompt = `Business Information:
+    const userPrompt = `Current Date and Time Context:
+Today is: ${currentDate}
+Current time is: ${currentTime} (${currentHour24}:${String(now.getMinutes()).padStart(2, '0')} in 24-hour format)
+Current day of week: ${currentDayOfWeek} (0=Sunday, 6=Saturday)
+
+Business Information:
 ${context}
 
 Customer Question: ${question}
 
-Please provide a helpful answer based on the business information above. When answering about hours, always use the Business Hours information from above.`;
+IMPORTANT: When answering about availability or whether the business is open at a specific time:
+1. Convert the requested time to 24-hour format (e.g., 11am = 11:00, 2pm = 14:00, 11pm = 23:00)
+2. Check if that time falls within the Business Hours for the relevant day
+3. If yes, confirm the business is open at that time
+4. If no, explain when the business is actually open
+
+Please provide a helpful answer based on the business information above.`;
 
     // Log context for debugging (remove in production if needed)
     console.log('AI Context being sent:', context.substring(0, 500) + '...');
