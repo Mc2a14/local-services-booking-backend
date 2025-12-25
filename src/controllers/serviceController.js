@@ -7,11 +7,11 @@ const createService = async (req, res) => {
     const { title, description, category, price, duration_minutes, image_url } = req.body;
 
     // Validation
-    if (!title || !price) {
-      return res.status(400).json({ error: 'title and price are required' });
+    if (!title || title.trim() === '') {
+      return res.status(400).json({ error: 'title is required' });
     }
 
-    if (isNaN(price) || price <= 0) {
+    if (price === null || price === undefined || price === '' || isNaN(price) || price <= 0) {
       return res.status(400).json({ error: 'price must be a positive number' });
     }
 
