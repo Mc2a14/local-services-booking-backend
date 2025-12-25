@@ -11,8 +11,8 @@ const createService = async (req, res) => {
       return res.status(400).json({ error: 'title is required' });
     }
 
-    if (price === null || price === undefined || price === '' || isNaN(price) || price <= 0) {
-      return res.status(400).json({ error: 'price must be a positive number' });
+    if (price === null || price === undefined || price === '' || isNaN(price) || price < 0) {
+      return res.status(400).json({ error: 'price must be a number greater than or equal to 0' });
     }
 
     // Verify provider exists, then create service
