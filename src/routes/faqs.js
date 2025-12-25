@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const faqController = require('../controllers/faqController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate, requireProvider } = require('../middleware/auth');
 
 // All FAQ routes require authentication
-router.use(authenticateToken);
+router.use(authenticate);
+router.use(requireProvider);
 
 // Get all FAQs for the logged-in provider
 router.get('/', faqController.getMyFAQs);
