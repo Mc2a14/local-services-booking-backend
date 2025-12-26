@@ -196,6 +196,7 @@ const generateAIResponse = async (question, providerId, businessSlug = null) => 
   try {
     // Detect customer's language
     const customerLanguage = detectLanguage(question);
+    console.log(`[AI Service] Question: "${question.substring(0, 100)}" | Detected language: ${customerLanguage}`);
     
     // Get business context
     const context = await getBusinessContext(providerId, businessSlug);
