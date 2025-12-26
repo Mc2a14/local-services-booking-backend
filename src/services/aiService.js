@@ -118,11 +118,64 @@ const getBusinessContext = async (providerId, businessSlug = null) => {
   }
 };
 
+// Simple language detection based on common patterns
+const detectLanguage = (text) => {
+  if (!text || typeof text !== 'string') return 'en';
+  
+  const lowerText = text.toLowerCase();
+  
+  // Spanish indicators
+  const spanishPatterns = [
+    /\b(si|sí|por|para|con|del|las|los|una|uno|este|esta|muy|más|también|puede|puedo|quiero|necesito|ayuda|hijo|hija|curso|clase|horario|disponible|reservar|agendar)\b/i,
+    /\b(es|está|están|son|tiene|tienen|hay|fue|será)\b/i,
+    /[áéíóúñü]/i
+  ];
+  
+  // French indicators
+  const frenchPatterns = [
+    /\b(oui|non|pour|avec|dans|sur|sous|très|plus|aussi|peut|veux|besoin|aide|enfant|cours|horaire|disponible|réserver)\b/i,
+    /[àâäéèêëïîôùûüÿç]/i
+  ];
+  
+  // Portuguese indicators
+  const portuguesePatterns = [
+    /\b(sim|não|para|com|por|muito|mais|também|pode|quer|precisa|ajuda|filho|filha|curso|horário|disponível|reservar|agendar)\b/i,
+    /[áàâãéêíóôõúüç]/i
+  ];
+  
+  // Count matches
+  let spanishMatches = 0;
+  let frenchMatches = 0;
+  let portugueseMatches = 0;
+  
+  spanishPatterns.forEach(pattern => {
+    if (pattern.test(lowerText)) spanishMatches++;
+  });
+  
+  frenchPatterns.forEach(pattern => {
+    if (pattern.test(lowerText)) frenchMatches++;
+  });
+  
+  portuguesePatterns.forEach(pattern => {
+    if (pattern.test(lowerText)) portugueseMatches++;
+  });
+  
+  // Return detected language (default to Spanish if Spanish patterns found, as it's most common)
+  if (spanishMatches > 0) return 'es';
+  if (frenchMatches > 0) return 'fr';
+  if (portugueseMatches > 0) return 'pt';
+  
+  return 'en'; // Default to English
+};
+
 // Generate AI response using OpenAI
 const generateAIResponse = async (question, providerId, businessSlug = null) => {
   validateOpenAIKey();
 
   try {
+    // Detect customer's language
+    const customerLanguage = detectLanguage(question);
+    
     // Get business context
     const context = await getBusinessContext(providerId, businessSlug);
 
@@ -133,10 +186,20 @@ const generateAIResponse = async (question, providerId, businessSlug = null) => 
     const currentHour24 = now.getHours();
     const currentDayOfWeek = now.getDay(); // 0=Sunday, 6=Saturday
 
+    // Language-specific instructions
+    const languageInstructions = {
+      'es': 'CRITICAL: The customer asked in Spanish. You MUST respond in Spanish. Use proper Spanish grammar and vocabulary.',
+      'fr': 'CRITICAL: The customer asked in French. You MUST respond in French. Use proper French grammar and vocabulary.',
+      'pt': 'CRITICAL: The customer asked in Portuguese. You MUST respond in Portuguese. Use proper Portuguese grammar and vocabulary.',
+      'en': 'CRITICAL: The customer asked in English. You MUST respond in English. Use proper English grammar and vocabulary.'
+    };
+
     // Prepare the prompt
     const systemPrompt = `You are a helpful customer service assistant for a local business. 
 Answer customer questions based on the business information provided below. 
 Be friendly, concise, and accurate.
+
+${languageInstructions[customerLanguage] || languageInstructions['en']}
 
 IMPORTANT FORMATTING RULES:
 - Do NOT repeat or echo the customer's question in your response
@@ -174,13 +237,18 @@ ${context}
 
 Customer Question: ${question}
 
+IMPORTANT LANGUAGE REQUIREMENT:
+- The customer asked in ${customerLanguage === 'es' ? 'Spanish' : customerLanguage === 'fr' ? 'French' : customerLanguage === 'pt' ? 'Portuguese' : 'English'}
+- You MUST respond in the SAME language the customer used
+- Do not translate or switch languages - match the customer's language exactly
+
 IMPORTANT: When answering about availability or whether the business is open at a specific time:
 1. Convert the requested time to 24-hour format (e.g., 11am = 11:00, 2pm = 14:00, 11pm = 23:00)
 2. Check if that time falls within the Business Hours for the relevant day
 3. If yes, confirm the business is open at that time
 4. If no, explain when the business is actually open
 
-Please provide a helpful answer based on the business information above.
+Please provide a helpful answer based on the business information above, in the same language as the customer's question.
 Remember: Do not repeat the customer's question - just provide the answer directly.`;
 
     // Log context for debugging (remove in production if needed)
