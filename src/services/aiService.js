@@ -122,48 +122,69 @@ const getBusinessContext = async (providerId, businessSlug = null) => {
 const detectLanguage = (text) => {
   if (!text || typeof text !== 'string') return 'en';
   
-  const lowerText = text.toLowerCase();
+  const lowerText = text.toLowerCase().trim();
   
-  // Spanish indicators
-  const spanishPatterns = [
-    /\b(si|sí|por|para|con|del|las|los|una|uno|este|esta|muy|más|también|puede|puedo|quiero|necesito|ayuda|hijo|hija|curso|clase|horario|disponible|reservar|agendar)\b/i,
-    /\b(es|está|están|son|tiene|tienen|hay|fue|será)\b/i,
-    /[áéíóúñü]/i
+  // Spanish indicators - expanded list
+  const spanishWords = [
+    'si', 'sí', 'por', 'para', 'con', 'del', 'las', 'los', 'una', 'uno', 
+    'este', 'esta', 'muy', 'más', 'también', 'puede', 'puedo', 'quiero', 
+    'necesito', 'ayuda', 'hijo', 'hija', 'curso', 'clase', 'horario', 
+    'disponible', 'reservar', 'agendar', 'está', 'están', 'son', 'tiene', 
+    'tienen', 'hay', 'fue', 'será', 'mi', 'tu', 'su', 'sus', 'nuestro', 
+    'nuestra', 'cuando', 'donde', 'como', 'que', 'cual', 'cuales', 'quien',
+    'aun', 'aún', 'atrasado', 'todavía', 'pueden', 'ser', 'estar', 'hacer'
   ];
   
   // French indicators
-  const frenchPatterns = [
-    /\b(oui|non|pour|avec|dans|sur|sous|très|plus|aussi|peut|veux|besoin|aide|enfant|cours|horaire|disponible|réserver)\b/i,
-    /[àâäéèêëïîôùûüÿç]/i
+  const frenchWords = [
+    'oui', 'non', 'pour', 'avec', 'dans', 'sur', 'sous', 'très', 'plus', 
+    'aussi', 'peut', 'veux', 'besoin', 'aide', 'enfant', 'cours', 'horaire', 
+    'disponible', 'réserver', 'cette', 'cet', 'ces', 'leur', 'leurs'
   ];
   
   // Portuguese indicators
-  const portuguesePatterns = [
-    /\b(sim|não|para|com|por|muito|mais|também|pode|quer|precisa|ajuda|filho|filha|curso|horário|disponível|reservar|agendar)\b/i,
-    /[áàâãéêíóôõúüç]/i
+  const portugueseWords = [
+    'sim', 'não', 'para', 'com', 'por', 'muito', 'mais', 'também', 'pode', 
+    'quer', 'precisa', 'ajuda', 'filho', 'filha', 'curso', 'horário', 
+    'disponível', 'reservar', 'agendar', 'está', 'são', 'tem', 'tem', 'foi'
   ];
   
-  // Count matches
-  let spanishMatches = 0;
-  let frenchMatches = 0;
-  let portugueseMatches = 0;
+  // Check for Spanish characters
+  const hasSpanishChars = /[áéíóúñüÁÉÍÓÚÑÜ]/.test(text);
   
-  spanishPatterns.forEach(pattern => {
-    if (pattern.test(lowerText)) spanishMatches++;
-  });
+  // Check for Spanish words
+  const spanishWordMatches = spanishWords.filter(word => {
+    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    return regex.test(lowerText);
+  }).length;
   
-  frenchPatterns.forEach(pattern => {
-    if (pattern.test(lowerText)) frenchMatches++;
-  });
+  // Check for French characters
+  const hasFrenchChars = /[àâäéèêëïîôùûüÿçÀÂÄÉÈÊËÏÎÔÙÛÜŸÇ]/.test(text);
   
-  portuguesePatterns.forEach(pattern => {
-    if (pattern.test(lowerText)) portugueseMatches++;
-  });
+  // Check for French words
+  const frenchWordMatches = frenchWords.filter(word => {
+    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    return regex.test(lowerText);
+  }).length;
   
-  // Return detected language (default to Spanish if Spanish patterns found, as it's most common)
-  if (spanishMatches > 0) return 'es';
-  if (frenchMatches > 0) return 'fr';
-  if (portugueseMatches > 0) return 'pt';
+  // Check for Portuguese characters
+  const hasPortugueseChars = /[áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ]/.test(text);
+  
+  // Check for Portuguese words
+  const portugueseWordMatches = portugueseWords.filter(word => {
+    const regex = new RegExp(`\\b${word}\\b`, 'i');
+    return regex.test(lowerText);
+  }).length;
+  
+  // Prioritize character detection (most reliable)
+  if (hasSpanishChars || spanishWordMatches >= 2) return 'es';
+  if (hasFrenchChars || frenchWordMatches >= 2) return 'fr';
+  if (hasPortugueseChars || portugueseWordMatches >= 2) return 'pt';
+  
+  // Fallback to word matching
+  if (spanishWordMatches > 0 && spanishWordMatches >= frenchWordMatches && spanishWordMatches >= portugueseWordMatches) return 'es';
+  if (frenchWordMatches > 0 && frenchWordMatches >= portugueseWordMatches) return 'fr';
+  if (portugueseWordMatches > 0) return 'pt';
   
   return 'en'; // Default to English
 };
@@ -186,12 +207,41 @@ const generateAIResponse = async (question, providerId, businessSlug = null) => 
     const currentHour24 = now.getHours();
     const currentDayOfWeek = now.getDay(); // 0=Sunday, 6=Saturday
 
-    // Language-specific instructions
+    // Language-specific instructions - make it VERY explicit
+    const languageNames = {
+      'es': 'Spanish (Español)',
+      'fr': 'French (Français)',
+      'pt': 'Portuguese (Português)',
+      'en': 'English'
+    };
+    
     const languageInstructions = {
-      'es': 'CRITICAL: The customer asked in Spanish. You MUST respond in Spanish. Use proper Spanish grammar and vocabulary.',
-      'fr': 'CRITICAL: The customer asked in French. You MUST respond in French. Use proper French grammar and vocabulary.',
-      'pt': 'CRITICAL: The customer asked in Portuguese. You MUST respond in Portuguese. Use proper Portuguese grammar and vocabulary.',
-      'en': 'CRITICAL: The customer asked in English. You MUST respond in English. Use proper English grammar and vocabulary.'
+      'es': `CRITICAL LANGUAGE REQUIREMENT: 
+The customer's question is in SPANISH (Español). 
+You MUST respond ONLY in SPANISH. 
+- Use Spanish grammar, vocabulary, and sentence structure
+- Do NOT translate your response to English
+- Do NOT mix languages
+- Respond entirely in Spanish`,
+      'fr': `CRITICAL LANGUAGE REQUIREMENT:
+The customer's question is in FRENCH (Français).
+You MUST respond ONLY in FRENCH.
+- Use French grammar, vocabulary, and sentence structure
+- Do NOT translate your response to English
+- Do NOT mix languages
+- Respond entirely in French`,
+      'pt': `CRITICAL LANGUAGE REQUIREMENT:
+The customer's question is in PORTUGUESE (Português).
+You MUST respond ONLY in PORTUGUESE.
+- Use Portuguese grammar, vocabulary, and sentence structure
+- Do NOT translate your response to English
+- Do NOT mix languages
+- Respond entirely in Portuguese`,
+      'en': `CRITICAL LANGUAGE REQUIREMENT:
+The customer's question is in ENGLISH.
+You MUST respond ONLY in ENGLISH.
+- Use proper English grammar and vocabulary
+- Respond entirely in English`
     };
 
     // Prepare the prompt
@@ -235,12 +285,17 @@ Current day of week: ${currentDayOfWeek} (0=Sunday, 6=Saturday)
 Business Information:
 ${context}
 
-Customer Question: ${question}
+Customer Question (${languageNames[customerLanguage]}): ${question}
 
-IMPORTANT LANGUAGE REQUIREMENT:
-- The customer asked in ${customerLanguage === 'es' ? 'Spanish' : customerLanguage === 'fr' ? 'French' : customerLanguage === 'pt' ? 'Portuguese' : 'English'}
-- You MUST respond in the SAME language the customer used
-- Do not translate or switch languages - match the customer's language exactly
+⚠️ MANDATORY LANGUAGE REQUIREMENT ⚠️
+- DETECTED LANGUAGE: ${languageNames[customerLanguage]}
+- You MUST respond in ${languageNames[customerLanguage]} ONLY
+- Every word of your response must be in ${languageNames[customerLanguage]}
+- Do NOT use English or any other language
+- If the customer asked in Spanish, respond entirely in Spanish
+- If the customer asked in French, respond entirely in French
+- If the customer asked in Portuguese, respond entirely in Portuguese
+- Do NOT translate, do NOT switch languages, do NOT mix languages
 
 IMPORTANT: When answering about availability or whether the business is open at a specific time:
 1. Convert the requested time to 24-hour format (e.g., 11am = 11:00, 2pm = 14:00, 11pm = 23:00)
@@ -248,8 +303,7 @@ IMPORTANT: When answering about availability or whether the business is open at 
 3. If yes, confirm the business is open at that time
 4. If no, explain when the business is actually open
 
-Please provide a helpful answer based on the business information above, in the same language as the customer's question.
-Remember: Do not repeat the customer's question - just provide the answer directly.`;
+Provide your answer NOW in ${languageNames[customerLanguage]}, without repeating the customer's question.`;
 
     // Log context for debugging (remove in production if needed)
     console.log('AI Context being sent:', context.substring(0, 500) + '...');
