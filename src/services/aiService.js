@@ -136,7 +136,13 @@ const generateAIResponse = async (question, providerId, businessSlug = null) => 
     // Prepare the prompt
     const systemPrompt = `You are a helpful customer service assistant for a local business. 
 Answer customer questions based on the business information provided below. 
-Be friendly, concise, and accurate. 
+Be friendly, concise, and accurate.
+
+IMPORTANT FORMATTING RULES:
+- Do NOT repeat or echo the customer's question in your response
+- Do NOT start your response with "Customer Question:" or similar phrases
+- Provide only the answer directly, as if you're responding naturally in a conversation
+- Example: Instead of "Customer Question: What are your hours? Answer: We're open 9am-5pm", just say "We're open 9am-5pm"
 
 CRITICAL INSTRUCTIONS FOR BOOKING APPOINTMENTS:
 - When customers ask how to book an appointment, schedule a service, or make a booking, ALWAYS direct them to book through THIS website (the page they are currently on)
@@ -174,7 +180,8 @@ IMPORTANT: When answering about availability or whether the business is open at 
 3. If yes, confirm the business is open at that time
 4. If no, explain when the business is actually open
 
-Please provide a helpful answer based on the business information above.`;
+Please provide a helpful answer based on the business information above.
+Remember: Do not repeat the customer's question - just provide the answer directly.`;
 
     // Log context for debugging (remove in production if needed)
     console.log('AI Context being sent:', context.substring(0, 500) + '...');
