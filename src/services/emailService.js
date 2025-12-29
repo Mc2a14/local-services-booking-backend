@@ -412,13 +412,51 @@ If you didn't request this reset, please ignore this email. Your password will n
 Thank you for using Atencio!`;
 
   // Try to send using system email if configured
-  // For now, we'll use a simple nodemailer setup
+  // Railway blocks SMTP on Free/Trial plans, so we prefer HTTPS API services like Resend
   // If system email is not configured, this will log the email content
   try {
+    // Check if Resend API key is configured (recommended for Railway)
+    const resendApiKey = process.env.RESEND_API_KEY;
+    
     // Check if system email is configured via environment variables
     const systemEmail = process.env.SYSTEM_EMAIL || process.env.GMAIL_USER;
     const systemEmailPassword = process.env.SYSTEM_EMAIL_PASSWORD || process.env.GMAIL_APP_PASSWORD;
+    
+    // If Resend is configured, use it (works on all Railway plans)
+    if (resendApiKey) {
+      const resendEmail = process.env.RESEND_FROM_EMAIL || systemEmail || 'noreply@atencio.app';
+      
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: `Atencio <${resendEmail}>`,
+            to: email,
+            subject: subject,
+            html: html,
+            text: text
+          })
+        });
 
+        if (response.ok) {
+          console.log(`✅ Password reset email sent via Resend to ${email}`);
+          return true;
+        } else {
+          const errorData = await response.json();
+          throw new Error(`Resend API error: ${errorData.message || response.statusText}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to send email via Resend to ${email}:`, error.message);
+          // Fall through to try SMTP if configured (will likely fail on Railway Free/Trial)
+        console.log(`   Note: SMTP may not work on Railway Free/Trial plans. Consider using Resend API instead.`);
+      }
+    }
+
+    // Try SMTP if no Resend API key (may fail on Railway Free/Trial plans)
     if (systemEmail && systemEmailPassword) {
       // Support both Gmail and custom SMTP
       let transporter;
