@@ -24,9 +24,11 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Allow requests from specific frontend domain
+    // Allow requests from specific frontend domains
     const allowedOrigins = [
-      'https://local-services-booking-frontend-production.up.railway.app'
+      'https://local-services-booking-frontend-production.up.railway.app', // Old Railway domain (keep for backwards compatibility)
+      'https://atencio.app', // Custom domain
+      'https://www.atencio.app' // www subdomain
     ];
     
     if (allowedOrigins.includes(origin)) {
