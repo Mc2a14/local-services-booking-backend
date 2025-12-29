@@ -194,11 +194,22 @@ const updateProvider = async (userId, providerData) => {
       ]
     );
 
-  if (result.rows.length === 0) {
-    throw new Error('Provider not found');
-  }
+    if (result.rows.length === 0) {
+      throw new Error('Provider not found');
+    }
 
-  return result.rows[0];
+    return result.rows[0];
+  } catch (error) {
+    console.error('SQL Update error:', error);
+    console.error('Update parameters:', {
+      business_name,
+      email_service_type,
+      hasEmailPassword: !!email_password,
+      userId,
+      userEmail
+    });
+    throw error;
+  }
 };
 
 // Update provider email configuration
