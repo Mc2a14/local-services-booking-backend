@@ -268,30 +268,44 @@ const verifyEmailAndPhoneForReset = async (email, phone) => {
   const user = result.rows[0];
 
   // Normalize phone numbers for comparison
-  // Remove spaces, dashes, parentheses, dots, and convert to lowercase for + signs
+  // Remove spaces, dashes, parentheses, dots
   // Handles: +1-555-123-4567, (555) 123-4567, 5551234567, +1 555 123 4567, etc.
   const normalizePhone = (phone) => {
     if (!phone) return '';
-    // Remove all non-digit characters except + at the start
-    let normalized = phone.trim();
-    // Keep + if at the start, otherwise remove it
-    const hasPlus = normalized.startsWith('+');
-    normalized = normalized.replace(/[\s\-\(\)\.]/g, ''); // Remove spaces, dashes, parentheses, dots
-    if (hasPlus && !normalized.startsWith('+')) {
-      normalized = '+' + normalized;
-    }
-    // Remove + if it's not at the start (shouldn't happen, but just in case)
-    normalized = normalized.replace(/(?<!^)\+/g, '');
-    return normalized.toLowerCase();
+    // Remove all formatting characters: spaces, dashes, parentheses, dots
+    return phone.trim().replace(/[\s\-\(\)\.]/g, '');
   };
 
   const normalizedUserPhone = normalizePhone(user.phone || '');
   const normalizedInputPhone = normalizePhone(phone || '');
 
-  // Check if phone matches (or if user has no phone on file, allow if phone is empty)
-  if (normalizedUserPhone && normalizedUserPhone !== normalizedInputPhone) {
-    throw new Error('Phone number does not match our records');
+  // Check if phone matches
+  // If user has a phone on file, it must match (with flexible country code handling)
+  if (normalizedUserPhone) {
+    if (!normalizedInputPhone) {
+      // User has phone on file but didn't provide one
+      throw new Error('Phone number is required for verification');
+    }
+    
+    // Direct match
+    if (normalizedUserPhone === normalizedInputPhone) {
+      // Perfect match
+    } else {
+      // Try matching without country code
+      // Remove leading +1 or + from both
+      const userPhoneNoCountry = normalizedUserPhone.replace(/^\+1/, '').replace(/^\+/, '');
+      const inputPhoneNoCountry = normalizedInputPhone.replace(/^\+1/, '').replace(/^\+/, '');
+      
+      // Compare without country codes
+      if (userPhoneNoCountry && inputPhoneNoCountry && userPhoneNoCountry === inputPhoneNoCountry) {
+        // Match when country codes are removed
+      } else {
+        // No match even after removing country codes
+        throw new Error('Phone number does not match our records');
+      }
+    }
   }
+  // If user has no phone on file, we allow verification (phone is optional)
 
   // If user has no phone on file, we still allow (phone is optional)
   // Return user ID for password reset
