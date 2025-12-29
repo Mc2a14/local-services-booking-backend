@@ -436,13 +436,38 @@ Thank you for using Atencio!`;
         });
       } else {
         // Default to Gmail
-        transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: systemEmail,
-            pass: systemEmailPassword
-          }
-        });
+        // Try OAuth2 first if OAUTH_CLIENT_ID is set, otherwise use password
+        if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_CLIENT_SECRET && process.env.OAUTH_REFRESH_TOKEN) {
+          transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              type: 'OAuth2',
+              user: systemEmail,
+              clientId: process.env.OAUTH_CLIENT_ID,
+              clientSecret: process.env.OAUTH_CLIENT_SECRET,
+              refreshToken: process.env.OAUTH_REFRESH_TOKEN
+            }
+          });
+        } else {
+          // Use regular password authentication (works with app password or regular password)
+          // Use explicit SMTP settings for Gmail with longer timeout
+          transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // true for 465, false for other ports
+            auth: {
+              user: systemEmail,
+              pass: systemEmailPassword
+            },
+            connectionTimeout: 60000, // 60 seconds
+            greetingTimeout: 30000, // 30 seconds
+            socketTimeout: 60000, // 60 seconds
+            // Additional options for better reliability
+            tls: {
+              rejectUnauthorized: false // Allow self-signed certificates if needed
+            }
+          });
+        }
       }
 
       await transporter.sendMail({
