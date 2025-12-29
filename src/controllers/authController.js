@@ -111,7 +111,7 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-// Reset password with token
+// Reset password with token (legacy method, kept for backwards compatibility)
 const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -132,6 +132,62 @@ const resetPassword = async (req, res) => {
     
     if (error.message.includes('Invalid') || error.message.includes('expired') || error.message.includes('used')) {
       return res.status(400).json({ error: error.message });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// Verify email and phone for password reset (simple method, no email required)
+const verifyForPasswordReset = async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Verify email and phone
+    const verification = await authService.verifyEmailAndPhoneForReset(email, phone || '');
+
+    // Return success (don't reveal if user exists for security)
+    res.json({ 
+      message: 'Verification successful. You can now reset your password.',
+      verified: true
+    });
+  } catch (error) {
+    console.error('Verify for password reset error:', error);
+    
+    // Don't reveal if email exists or phone mismatch (security)
+    res.status(400).json({ error: 'Verification failed. Please check your email and phone number.' });
+  }
+};
+
+// Reset password after email/phone verification
+const resetPasswordVerified = async (req, res) => {
+  try {
+    const { email, phone, newPassword, confirmPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required' });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    await authService.resetPasswordAfterVerification(email, phone || '', newPassword);
+
+    res.json({ message: 'Password reset successfully. You can now login with your new password.' });
+  } catch (error) {
+    console.error('Reset password verified error:', error);
+    
+    if (error.message.includes('not found') || error.message.includes('does not match')) {
+      return res.status(400).json({ error: 'Verification failed. Please check your email and phone number.' });
     }
     
     res.status(500).json({ error: 'Internal server error' });
@@ -205,7 +261,9 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changePassword,
-  changeEmail
+  changeEmail,
+  verifyForPasswordReset,
+  resetPasswordVerified
 };
 
 

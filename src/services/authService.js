@@ -254,6 +254,66 @@ const changeEmail = async (userId, newEmail, password) => {
   );
 };
 
+// Verify email and phone for password reset (no email needed)
+const verifyEmailAndPhoneForReset = async (email, phone) => {
+  const result = await query(
+    'SELECT id, email, phone, full_name FROM users WHERE email = $1',
+    [email]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('No account found with that email address');
+  }
+
+  const user = result.rows[0];
+
+  // Normalize phone numbers for comparison (remove spaces, dashes, parentheses)
+  const normalizePhone = (phone) => {
+    if (!phone) return '';
+    return phone.replace(/[\s\-\(\)]/g, '').trim();
+  };
+
+  const normalizedUserPhone = normalizePhone(user.phone || '');
+  const normalizedInputPhone = normalizePhone(phone || '');
+
+  // Check if phone matches (or if user has no phone on file, allow if phone is empty)
+  if (normalizedUserPhone && normalizedUserPhone !== normalizedInputPhone) {
+    throw new Error('Phone number does not match our records');
+  }
+
+  // If user has no phone on file, we still allow (phone is optional)
+  // Return user ID for password reset
+  return {
+    userId: user.id,
+    email: user.email,
+    fullName: user.full_name,
+    verified: true
+  };
+};
+
+// Reset password after email/phone verification (direct reset, no token needed)
+const resetPasswordAfterVerification = async (email, phone, newPassword) => {
+  // Verify email and phone
+  const verification = await verifyEmailAndPhoneForReset(email, phone);
+
+  // Validate new password
+  if (newPassword.length < 6) {
+    throw new Error('Password must be at least 6 characters');
+  }
+
+  // Hash new password
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+  // Update password
+  await query(
+    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    [passwordHash, verification.userId]
+  );
+
+  return verification;
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -263,7 +323,9 @@ module.exports = {
   verifyPasswordResetToken,
   resetPasswordWithToken,
   changePassword,
-  changeEmail
+  changeEmail,
+  verifyEmailAndPhoneForReset,
+  resetPasswordAfterVerification
 };
 
 

@@ -36,4 +36,3 @@ const decrypt = (encryptedText) => {
 
 module.exports = { encrypt, decrypt };
 
-

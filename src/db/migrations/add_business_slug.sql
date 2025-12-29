@@ -16,4 +16,3 @@ WHERE business_slug IS NULL;
 ALTER TABLE providers 
   ADD CONSTRAINT providers_slug_not_empty CHECK (business_slug IS NULL OR LENGTH(TRIM(business_slug)) > 0);
 
-

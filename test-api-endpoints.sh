@@ -212,4 +212,3 @@ if [ -n "$CUSTOMER_TOKEN" ]; then
 fi
 
 
-

@@ -31,4 +31,3 @@ CREATE TRIGGER update_faqs_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_faqs_updated_at();
 
-

@@ -131,4 +131,3 @@ Once configured:
 
 No need for each business owner to configure anything - it all works automatically!
 
-

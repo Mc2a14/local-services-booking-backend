@@ -88,12 +88,4 @@ app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   
   // If response was already sent, delegate to default Express error handler
-  if (res.headersSent) {
-    return next(err);
-  }
-  
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
-
-module.exports = app;
-
+  if (res.headers
