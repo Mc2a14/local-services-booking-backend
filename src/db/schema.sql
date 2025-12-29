@@ -109,6 +109,16 @@ CREATE TABLE IF NOT EXISTS email_notifications (
   status VARCHAR(20) DEFAULT 'sent' CHECK (status IN ('sent', 'failed', 'pending'))
 );
 
+-- Password reset tokens table
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_type ON users(user_type);
@@ -121,6 +131,9 @@ CREATE INDEX IF NOT EXISTS idx_reviews_service ON reviews(service_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_provider ON reviews(provider_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_customer ON reviews(customer_id);
 CREATE INDEX IF NOT EXISTS idx_email_notifications_booking ON email_notifications(booking_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
 CREATE INDEX IF NOT EXISTS idx_services_provider ON services(provider_id);
 CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
 CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);

@@ -61,3 +61,4 @@ If a business owner doesn't provide email credentials:
 - No sharing of email accounts between businesses
 - Business owners can update their email password anytime
 
+

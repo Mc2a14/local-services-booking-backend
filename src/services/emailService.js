@@ -344,10 +344,120 @@ const getEmailNotifications = async (bookingId) => {
   return result.rows;
 };
 
+// Send password reset email (system-level email, doesn't require provider config)
+const sendPasswordResetEmail = async (email, resetToken, userName) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://atencio.app';
+  const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+  const subject = 'Password Reset Request - Atencio';
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #2563EB; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 5px 5px; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #2563EB; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .warning { background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #F59E0B; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${userName || 'User'},</p>
+          <p>We received a request to reset your password for your Atencio account.</p>
+          <p>Click the button below to reset your password:</p>
+          <div style="text-align: center;">
+            <a href="${resetLink}" class="button">Reset Password</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #2563EB;">${resetLink}</p>
+          <div class="warning">
+            <strong>⚠️ Security Notice:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li>This link will expire in 1 hour</li>
+              <li>If you didn't request this reset, please ignore this email</li>
+              <li>Your password will not change until you create a new one</li>
+            </ul>
+          </div>
+          <div class="footer">
+            <p>Thank you for using Atencio!</p>
+            <p>If you have any questions, please contact support.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `Hello ${userName || 'User'},
+
+We received a request to reset your password for your Atencio account.
+
+Click this link to reset your password:
+${resetLink}
+
+This link will expire in 1 hour.
+
+If you didn't request this reset, please ignore this email. Your password will not change until you create a new one.
+
+Thank you for using Atencio!`;
+
+  // Try to send using system email if configured
+  // For now, we'll use a simple nodemailer setup
+  // If system email is not configured, this will log the email content
+  try {
+    // Check if system email is configured via environment variables
+    const systemEmail = process.env.SYSTEM_EMAIL || process.env.GMAIL_USER;
+    const systemEmailPassword = process.env.SYSTEM_EMAIL_PASSWORD || process.env.GMAIL_APP_PASSWORD;
+
+    if (systemEmail && systemEmailPassword) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: systemEmail,
+          pass: systemEmailPassword
+        }
+      });
+
+      await transporter.sendMail({
+        from: `"Atencio" <${systemEmail}>`,
+        to: email,
+        subject: subject,
+        text: text,
+        html: html
+      });
+
+      console.log(`✅ Password reset email sent to ${email}`);
+      return true;
+    } else {
+      // No system email configured - log it
+      console.log(`📧 Password reset email would be sent to ${email}`);
+      console.log(`   Reset link: ${resetLink}`);
+      console.log(`   To enable email sending, set SYSTEM_EMAIL and SYSTEM_EMAIL_PASSWORD environment variables`);
+      return false;
+    }
+  } catch (error) {
+    console.error(`❌ Failed to send password reset email to ${email}:`, error.message);
+    // Log the reset link so it's not completely lost
+    console.log(`   Reset link: ${resetLink}`);
+    return false;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendBookingConfirmation,
   sendBookingStatusUpdate,
   sendBookingReminder,
-  getEmailNotifications
+  getEmailNotifications,
+  sendPasswordResetEmail
 };

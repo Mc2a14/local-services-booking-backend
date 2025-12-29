@@ -17,3 +17,4 @@ router.get('/:provider_id/slots', availabilityController.getAvailableTimeSlots);
 module.exports = router;
 
 
+

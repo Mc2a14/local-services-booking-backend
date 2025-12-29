@@ -394,3 +394,4 @@ All errors follow this format:
 - AI chat requires OpenAI API key to be configured
 
 
+

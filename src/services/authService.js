@@ -95,11 +95,177 @@ const getUserById = async (userId) => {
   return result.rows[0];
 };
 
+// Get user by email
+const getUserByEmail = async (email) => {
+  const result = await query(
+    'SELECT id, email, full_name, phone, user_type, created_at FROM users WHERE email = $1',
+    [email]
+  );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return result.rows[0];
+};
+
+// Create password reset token
+const createPasswordResetToken = async (userId) => {
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 1); // Token expires in 1 hour
+
+  // Invalidate any existing tokens for this user
+  await query(
+    'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND used_at IS NULL',
+    [userId]
+  );
+
+  // Create new token
+  await query(
+    'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+    [userId, token, expiresAt]
+  );
+
+  return token;
+};
+
+// Verify password reset token
+const verifyPasswordResetToken = async (token) => {
+  const result = await query(
+    `SELECT prt.user_id, prt.expires_at, prt.used_at, u.email, u.full_name
+     FROM password_reset_tokens prt
+     JOIN users u ON u.id = prt.user_id
+     WHERE prt.token = $1`,
+    [token]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('Invalid or expired reset token');
+  }
+
+  const tokenData = result.rows[0];
+
+  if (tokenData.used_at) {
+    throw new Error('Reset token has already been used');
+  }
+
+  if (new Date(tokenData.expires_at) < new Date()) {
+    throw new Error('Reset token has expired');
+  }
+
+  return {
+    userId: tokenData.user_id,
+    email: tokenData.email,
+    fullName: tokenData.full_name
+  };
+};
+
+// Reset password using token
+const resetPasswordWithToken = async (token, newPassword) => {
+  // Verify token
+  const tokenData = await verifyPasswordResetToken(token);
+
+  // Hash new password
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+  // Update password
+  await query(
+    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    [passwordHash, tokenData.userId]
+  );
+
+  // Mark token as used
+  await query(
+    'UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE token = $1',
+    [token]
+  );
+
+  return tokenData;
+};
+
+// Change password (for logged-in users)
+const changePassword = async (userId, currentPassword, newPassword) => {
+  // Get user with password hash
+  const result = await query(
+    'SELECT id, password_hash FROM users WHERE id = $1',
+    [userId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('User not found');
+  }
+
+  const user = result.rows[0];
+
+  // Verify current password
+  const isValid = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!isValid) {
+    throw new Error('Current password is incorrect');
+  }
+
+  // Validate new password
+  if (newPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters');
+  }
+
+  // Hash new password
+  const saltRounds = 10;
+  const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+  // Update password
+  await query(
+    'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    [passwordHash, userId]
+  );
+};
+
+// Change email (for logged-in users)
+const changeEmail = async (userId, newEmail, password) => {
+  // Verify password first
+  const result = await query(
+    'SELECT id, password_hash FROM users WHERE id = $1',
+    [userId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('User not found');
+  }
+
+  const user = result.rows[0];
+
+  const isValid = await bcrypt.compare(password, user.password_hash);
+  if (!isValid) {
+    throw new Error('Password is incorrect');
+  }
+
+  // Check if new email is already taken
+  const existingUser = await query('SELECT id FROM users WHERE email = $1', [newEmail]);
+  if (existingUser.rows.length > 0 && existingUser.rows[0].id !== userId) {
+    throw new Error('Email already registered');
+  }
+
+  // Update email
+  await query(
+    'UPDATE users SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+    [newEmail, userId]
+  );
+};
+
 module.exports = {
   registerUser,
   loginUser,
-  getUserById
+  getUserById,
+  getUserByEmail,
+  createPasswordResetToken,
+  verifyPasswordResetToken,
+  resetPasswordWithToken,
+  changePassword,
+  changeEmail
 };
+
 
 
 
