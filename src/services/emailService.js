@@ -420,13 +420,30 @@ Thank you for using Atencio!`;
     const systemEmailPassword = process.env.SYSTEM_EMAIL_PASSWORD || process.env.GMAIL_APP_PASSWORD;
 
     if (systemEmail && systemEmailPassword) {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: systemEmail,
-          pass: systemEmailPassword
-        }
-      });
+      // Support both Gmail and custom SMTP
+      let transporter;
+      
+      if (process.env.SMTP_HOST) {
+        // Custom SMTP configuration
+        transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: {
+            user: systemEmail,
+            pass: systemEmailPassword
+          }
+        });
+      } else {
+        // Default to Gmail
+        transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: systemEmail,
+            pass: systemEmailPassword
+          }
+        });
+      }
 
       await transporter.sendMail({
         from: `"Atencio" <${systemEmail}>`,
