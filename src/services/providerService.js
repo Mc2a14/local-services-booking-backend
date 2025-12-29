@@ -161,49 +161,34 @@ const updateProvider = async (userId, providerData) => {
     }
   }
 
-  // Only update email config if email_password is provided
-  // If email_password is provided, update email config
-  // If not provided, keep existing email config
-  let emailUpdateFields = '';
-  let emailUpdateValues = [];
-  let paramIndex = 1;
-  
-  if (email_password && email_password.trim()) {
-    // Update email configuration
-    emailUpdateFields = `
-         email_service_type = COALESCE($${paramIndex}, email_service_type),
-         email_smtp_user = COALESCE($${paramIndex + 1}, email_smtp_user),
-         email_smtp_password_encrypted = COALESCE($${paramIndex + 2}, email_smtp_password_encrypted),
-         email_from_address = COALESCE($${paramIndex + 3}, email_from_address),
-         email_from_name = COALESCE($${paramIndex + 4}, email_from_name),`;
-    emailUpdateValues = [
-      email_service_type || 'gmail',
-      userEmail,
-      encryptedPassword,
-      userEmail,
-      business_name || null
-    ];
-    paramIndex += 5;
-  }
-
+  // Build update query - conditionally update email config only if password is provided
   const result = await query(
     `UPDATE providers 
-     SET business_name = COALESCE($${paramIndex}, business_name), 
-         description = COALESCE($${paramIndex + 1}, description), 
-         phone = COALESCE($${paramIndex + 2}, phone), 
-         address = COALESCE($${paramIndex + 3}, address),
-         business_slug = COALESCE($${paramIndex + 4}::VARCHAR, business_slug),
-         business_image_url = COALESCE($${paramIndex + 5}, business_image_url)${emailUpdateFields}
-     WHERE user_id = $${paramIndex + 6}
+     SET business_name = COALESCE($1, business_name), 
+         description = COALESCE($2, description), 
+         phone = COALESCE($3, phone), 
+         address = COALESCE($4, address),
+         business_slug = COALESCE($5::VARCHAR, business_slug),
+         business_image_url = COALESCE($6, business_image_url),
+         email_service_type = CASE WHEN $9 IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
+         email_smtp_user = CASE WHEN $9 IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
+         email_smtp_password_encrypted = CASE WHEN $9 IS NOT NULL THEN COALESCE($9, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,
+         email_from_address = CASE WHEN $9 IS NOT NULL THEN COALESCE($10, email_from_address) ELSE email_from_address END,
+         email_from_name = CASE WHEN $9 IS NOT NULL THEN COALESCE($11, email_from_name) ELSE email_from_name END
+     WHERE user_id = $12 
      RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at`,
     [
-      ...emailUpdateValues,
       business_name || null, 
       description || null, 
       phone || null, 
       address || null,
       business_slug || null,
       business_image_url || null,
+      email_service_type || (email_password ? 'gmail' : null),
+      email_password ? userEmail : null,
+      encryptedPassword,
+      email_password ? userEmail : null,
+      email_password ? (business_name || null) : null,
       userId
     ]
   );
