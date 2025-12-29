@@ -7,3 +7,4 @@ ALTER TABLE providers
 -- Update comment
 COMMENT ON COLUMN providers.business_image_url IS 'URL to business logo or main business image (can be URL or base64 data URI)';
 
+

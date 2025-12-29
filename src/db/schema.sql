@@ -133,3 +133,12 @@ CREATE INDEX IF NOT EXISTS idx_reviews_customer ON reviews(customer_id);
 CREATE INDEX IF NOT EXISTS idx_email_notifications_booking ON email_notifications(booking_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_services_provider ON services(provider_id);
+CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
+CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_service ON bookings(service_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date);
+CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+

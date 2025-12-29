@@ -267,10 +267,22 @@ const verifyEmailAndPhoneForReset = async (email, phone) => {
 
   const user = result.rows[0];
 
-  // Normalize phone numbers for comparison (remove spaces, dashes, parentheses)
+  // Normalize phone numbers for comparison
+  // Remove spaces, dashes, parentheses, dots, and convert to lowercase for + signs
+  // Handles: +1-555-123-4567, (555) 123-4567, 5551234567, +1 555 123 4567, etc.
   const normalizePhone = (phone) => {
     if (!phone) return '';
-    return phone.replace(/[\s\-\(\)]/g, '').trim();
+    // Remove all non-digit characters except + at the start
+    let normalized = phone.trim();
+    // Keep + if at the start, otherwise remove it
+    const hasPlus = normalized.startsWith('+');
+    normalized = normalized.replace(/[\s\-\(\)\.]/g, ''); // Remove spaces, dashes, parentheses, dots
+    if (hasPlus && !normalized.startsWith('+')) {
+      normalized = '+' + normalized;
+    }
+    // Remove + if it's not at the start (shouldn't happen, but just in case)
+    normalized = normalized.replace(/(?<!^)\+/g, '');
+    return normalized.toLowerCase();
   };
 
   const normalizedUserPhone = normalizePhone(user.phone || '');

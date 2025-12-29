@@ -345,4 +345,199 @@ const getEmailNotifications = async (bookingId) => {
 };
 
 // Send password reset email (system-level email, doesn't require provider config)
-const sendPasswordResetEmail = async (email, resetTok
+const sendPasswordResetEmail = async (email, resetToken, userName) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://atencio.app';
+  const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+  const subject = 'Password Reset Request - Atencio';
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #2563EB; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { background-color: #f8f9fa; padding: 30px; border-radius: 0 0 5px 5px; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #2563EB; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .warning { background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #F59E0B; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${userName || 'User'},</p>
+          <p>We received a request to reset your password for your Atencio account.</p>
+          <p>Click the button below to reset your password:</p>
+          <div style="text-align: center;">
+            <a href="${resetLink}" class="button">Reset Password</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #2563EB;">${resetLink}</p>
+          <div class="warning">
+            <strong>⚠️ Security Notice:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li>This link will expire in 1 hour</li>
+              <li>If you didn't request this reset, please ignore this email</li>
+              <li>Your password will not change until you create a new one</li>
+            </ul>
+          </div>
+          <div class="footer">
+            <p>Thank you for using Atencio!</p>
+            <p>If you have any questions, please contact support.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `Hello ${userName || 'User'},
+
+We received a request to reset your password for your Atencio account.
+
+Click this link to reset your password:
+${resetLink}
+
+This link will expire in 1 hour.
+
+If you didn't request this reset, please ignore this email. Your password will not change until you create a new one.
+
+Thank you for using Atencio!`;
+
+  // Try to send using system email if configured
+  // Railway blocks SMTP on Free/Trial plans, so we prefer HTTPS API services like Resend
+  // If system email is not configured, this will log the email content
+  try {
+    // Check if Resend API key is configured (recommended for Railway)
+    const resendApiKey = process.env.RESEND_API_KEY;
+    
+    // Check if system email is configured via environment variables
+    const systemEmail = process.env.SYSTEM_EMAIL || process.env.GMAIL_USER;
+    const systemEmailPassword = process.env.SYSTEM_EMAIL_PASSWORD || process.env.GMAIL_APP_PASSWORD;
+    
+    // If Resend is configured, use it (works on all Railway plans)
+    if (resendApiKey) {
+      const resendEmail = process.env.RESEND_FROM_EMAIL || systemEmail || 'noreply@atencio.app';
+      
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: `Atencio <${resendEmail}>`,
+            to: email,
+            subject: subject,
+            html: html,
+            text: text
+          })
+        });
+
+        if (response.ok) {
+          console.log(`✅ Password reset email sent via Resend to ${email}`);
+          return true;
+        } else {
+          const errorData = await response.json();
+          throw new Error(`Resend API error: ${errorData.message || response.statusText}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to send email via Resend to ${email}:`, error.message);
+          // Fall through to try SMTP if configured (will likely fail on Railway Free/Trial)
+        console.log(`   Note: SMTP may not work on Railway Free/Trial plans. Consider using Resend API instead.`);
+      }
+    }
+
+    // Try SMTP if no Resend API key (may fail on Railway Free/Trial plans)
+    if (systemEmail && systemEmailPassword) {
+      // Support both Gmail and custom SMTP
+      let transporter;
+      
+      if (process.env.SMTP_HOST) {
+        // Custom SMTP configuration
+        transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT || '587'),
+          secure: process.env.SMTP_SECURE === 'true',
+          auth: {
+            user: systemEmail,
+            pass: systemEmailPassword
+          }
+        });
+      } else {
+        // Default to Gmail
+        // Try OAuth2 first if OAUTH_CLIENT_ID is set, otherwise use password
+        if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_CLIENT_SECRET && process.env.OAUTH_REFRESH_TOKEN) {
+          transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+              type: 'OAuth2',
+              user: systemEmail,
+              clientId: process.env.OAUTH_CLIENT_ID,
+              clientSecret: process.env.OAUTH_CLIENT_SECRET,
+              refreshToken: process.env.OAUTH_REFRESH_TOKEN
+            }
+          });
+        } else {
+          // Use regular password authentication (works with app password or regular password)
+          // Use explicit SMTP settings for Gmail with longer timeout
+          transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // true for 465, false for other ports
+            auth: {
+              user: systemEmail,
+              pass: systemEmailPassword
+            },
+            connectionTimeout: 60000, // 60 seconds
+            greetingTimeout: 30000, // 30 seconds
+            socketTimeout: 60000, // 60 seconds
+            // Additional options for better reliability
+            tls: {
+              rejectUnauthorized: false // Allow self-signed certificates if needed
+            }
+          });
+        }
+      }
+
+      await transporter.sendMail({
+        from: `"Atencio" <${systemEmail}>`,
+        to: email,
+        subject: subject,
+        text: text,
+        html: html
+      });
+
+      console.log(`✅ Password reset email sent to ${email}`);
+      return true;
+    } else {
+      // No system email configured - log it
+      console.log(`📧 Password reset email would be sent to ${email}`);
+      console.log(`   Reset link: ${resetLink}`);
+      console.log(`   To enable email sending, set SYSTEM_EMAIL and SYSTEM_EMAIL_PASSWORD environment variables`);
+      return false;
+    }
+  } catch (error) {
+    console.error(`❌ Failed to send password reset email to ${email}:`, error.message);
+    // Log the reset link so it's not completely lost
+    console.log(`   Reset link: ${resetLink}`);
+    return false;
+  }
+};
+
+module.exports = {
+  sendEmail,
+  sendBookingConfirmation,
+  sendBookingStatusUpdate,
+  sendBookingReminder,
+  getEmailNotifications,
+  sendPasswordResetEmail
+};

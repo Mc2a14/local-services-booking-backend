@@ -12,3 +12,4 @@ router.get('/me', authenticate, requireProvider, businessInfoController.getMyBus
 module.exports = router;
 
 
+
