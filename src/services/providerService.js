@@ -133,12 +133,24 @@ const updateProvider = async (userId, providerData) => {
 
   // Get user's email
   const userResult = await query('SELECT email FROM users WHERE id = $1', [userId]);
-  const userEmail = userResult.rows[0]?.email;
+  if (userResult.rows.length === 0) {
+    throw new Error('User not found');
+  }
+  const userEmail = userResult.rows[0].email;
+  
+  if (!userEmail) {
+    throw new Error('User email not found');
+  }
 
   // Encrypt password if provided
   let encryptedPassword = null;
-  if (email_password) {
-    encryptedPassword = encrypt(email_password);
+  if (email_password && email_password.trim()) {
+    try {
+      encryptedPassword = encrypt(email_password.trim());
+    } catch (error) {
+      console.error('Password encryption error:', error);
+      throw new Error('Failed to encrypt email password. Please try again.');
+    }
   }
 
   // Handle slug update - only if provided and doesn't conflict
@@ -149,33 +161,49 @@ const updateProvider = async (userId, providerData) => {
     }
   }
 
+  // Only update email config if email_password is provided
+  // If email_password is provided, update email config
+  // If not provided, keep existing email config
+  let emailUpdateFields = '';
+  let emailUpdateValues = [];
+  let paramIndex = 1;
+  
+  if (email_password && email_password.trim()) {
+    // Update email configuration
+    emailUpdateFields = `
+         email_service_type = COALESCE($${paramIndex}, email_service_type),
+         email_smtp_user = COALESCE($${paramIndex + 1}, email_smtp_user),
+         email_smtp_password_encrypted = COALESCE($${paramIndex + 2}, email_smtp_password_encrypted),
+         email_from_address = COALESCE($${paramIndex + 3}, email_from_address),
+         email_from_name = COALESCE($${paramIndex + 4}, email_from_name),`;
+    emailUpdateValues = [
+      email_service_type || 'gmail',
+      userEmail,
+      encryptedPassword,
+      userEmail,
+      business_name || null
+    ];
+    paramIndex += 5;
+  }
+
   const result = await query(
     `UPDATE providers 
-     SET business_name = COALESCE($1, business_name), 
-         description = COALESCE($2, description), 
-         phone = COALESCE($3, phone), 
-         address = COALESCE($4, address),
-         business_slug = COALESCE($5::VARCHAR, business_slug),
-         business_image_url = COALESCE($6, business_image_url),
-         email_service_type = COALESCE($7, email_service_type),
-         email_smtp_user = COALESCE($8, email_smtp_user),
-         email_smtp_password_encrypted = COALESCE($9, email_smtp_password_encrypted),
-         email_from_address = COALESCE($10, email_from_address),
-         email_from_name = COALESCE($11, email_from_name)
-     WHERE user_id = $12 
+     SET business_name = COALESCE($${paramIndex}, business_name), 
+         description = COALESCE($${paramIndex + 1}, description), 
+         phone = COALESCE($${paramIndex + 2}, phone), 
+         address = COALESCE($${paramIndex + 3}, address),
+         business_slug = COALESCE($${paramIndex + 4}::VARCHAR, business_slug),
+         business_image_url = COALESCE($${paramIndex + 5}, business_image_url)${emailUpdateFields}
+     WHERE user_id = $${paramIndex + 6}
      RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at`,
     [
+      ...emailUpdateValues,
       business_name || null, 
       description || null, 
       phone || null, 
       address || null,
       business_slug || null,
       business_image_url || null,
-      email_service_type || null,
-      email_password ? userEmail : null,
-      encryptedPassword,
-      userEmail || null,
-      business_name || null,
       userId
     ]
   );
