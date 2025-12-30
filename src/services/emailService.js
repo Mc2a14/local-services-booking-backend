@@ -134,7 +134,10 @@ const sendEmail = async (emailData) => {
     try {
       // Determine sender email and name
       let senderEmail, senderName;
-      const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@atencio.app';
+      // Resend requires a verified domain. Use RESEND_FROM_EMAIL if set, otherwise default
+      // For testing, you can use 'onboarding@resend.dev' (Resend's test domain)
+      // For production, verify your domain in Resend and use your domain email
+      const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
       
       if (providerEmailConfig && providerEmailConfig.email_from_address) {
         // Use provider's email if available (but Resend will use verified domain)
