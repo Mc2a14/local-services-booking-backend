@@ -123,6 +123,7 @@ const sendEmail = async (emailData) => {
   // Try to send actual email - use provider's config if available
   const transporter = createTransporter(providerEmailConfig);
   if (transporter) {
+    console.log(`📧 Attempting to send email to ${recipient_email} using provider email config`);
     try {
       // Determine sender email and name - use provider's email
       let senderEmail, senderName;
@@ -191,7 +192,14 @@ const sendEmail = async (emailData) => {
     }
   } else {
     console.log(`📧 Email notification logged (no email service configured) to ${recipient_email}`);
-    console.log(`   To enable email sending, configure one of: GMAIL_USER/GMAIL_APP_PASSWORD, SENDGRID_API_KEY, or SMTP settings`);
+    if (providerEmailConfig) {
+      console.log(`   Provider email config exists but missing required fields. Config:`, {
+        hasEmailServiceType: !!providerEmailConfig.email_service_type,
+        hasEmailSmtpUser: !!providerEmailConfig.email_smtp_user,
+        hasEmailSmtpPassword: !!providerEmailConfig.email_smtp_password_encrypted
+      });
+    }
+    console.log(`   To enable email sending, configure email password in Provider Profile`);
     
     // Update status to logged (if no email service)
     if (emailRecord) {
