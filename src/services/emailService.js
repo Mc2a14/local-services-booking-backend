@@ -127,10 +127,73 @@ const sendEmail = async (emailData) => {
     console.error('Error saving email notification:', error);
   }
 
-  // Try to send actual email - use provider's config if available
+  // Try Resend first (if configured) - works on Railway Free tier (uses HTTPS API, not SMTP)
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (resendApiKey) {
+    console.log(`📧 Attempting to send email to ${recipient_email} using Resend API`);
+    try {
+      // Determine sender email and name
+      let senderEmail, senderName;
+      const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@atencio.app';
+      
+      if (providerEmailConfig && providerEmailConfig.email_from_address) {
+        // Use provider's email if available (but Resend will use verified domain)
+        senderName = providerEmailConfig.email_from_name || fromName || 'Booking Service';
+        // For Resend, use the verified domain, but set reply-to to provider's email
+        senderEmail = resendFromEmail;
+      } else if (fromEmail) {
+        senderName = fromName || 'Booking Service';
+        senderEmail = resendFromEmail;
+      } else {
+        senderName = 'Booking Service';
+        senderEmail = resendFromEmail;
+      }
+      
+      // Determine reply-to email (can be provider's email)
+      const replyToEmail = replyTo || fromEmail || (providerEmailConfig && providerEmailConfig.email_from_address) || senderEmail;
+      
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${resendApiKey}`
+        },
+        body: JSON.stringify({
+          from: `${senderName} <${senderEmail}>`,
+          to: recipient_email,
+          reply_to: replyToEmail,
+          subject: subject,
+          text: body,
+          html: html || createEmailTemplate(subject, body.replace(/\n/g, '<br>'))
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(`Resend API error: ${errorData.message || response.statusText}`);
+      }
+      
+      console.log(`✅ Email sent successfully via Resend to ${recipient_email}`);
+      
+      // Update status to sent
+      if (emailRecord) {
+        await query(
+          'UPDATE email_notifications SET status = $1 WHERE id = $2',
+          ['sent', emailRecord.id]
+        );
+      }
+      return emailRecord;
+    } catch (error) {
+      console.error(`❌ Failed to send email via Resend to ${recipient_email}:`, error.message);
+      // Fall through to try SMTP if Resend fails
+    }
+  }
+  
+  // Try SMTP if Resend is not configured (will fail on Railway Free tier)
   const transporter = createTransporter(providerEmailConfig);
   if (transporter) {
-    console.log(`📧 Attempting to send email to ${recipient_email} using provider email config`);
+    console.log(`📧 Attempting to send email to ${recipient_email} using SMTP (provider email config)`);
+    console.log(`   Note: SMTP may fail on Railway Free/Trial plans. Consider using Resend API instead.`);
     try {
       // Determine sender email and name - use provider's email
       let senderEmail, senderName;
@@ -186,8 +249,9 @@ const sendEmail = async (emailData) => {
         );
       }
     } catch (error) {
-      console.error(`❌ Failed to send email to ${recipient_email}:`, error.message);
+      console.error(`❌ Failed to send email via SMTP to ${recipient_email}:`, error.message);
       console.error(`   Full error:`, error);
+      console.error(`   Railway Free/Trial plans block SMTP. Use Resend API (RESEND_API_KEY) instead.`);
       
       // Update status to failed
       if (emailRecord) {
