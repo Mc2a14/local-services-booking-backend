@@ -222,6 +222,14 @@ const sendEmail = async (emailData) => {
 
 // Send booking confirmation email
 const sendBookingConfirmation = async (booking, customerEmail, providerEmail, providerBusinessName = null, providerEmailConfig = null) => {
+  console.log(`📧 sendBookingConfirmation called for booking #${booking.id}`);
+  console.log(`   Customer email: ${customerEmail}, Provider email: ${providerEmail}`);
+  console.log(`   Provider email config provided:`, providerEmailConfig ? 'YES' : 'NO');
+  if (providerEmailConfig) {
+    console.log(`   Email service type: ${providerEmailConfig.email_service_type || 'NOT SET'}`);
+    console.log(`   Has email_smtp_user: ${!!providerEmailConfig.email_smtp_user}`);
+    console.log(`   Has email_smtp_password_encrypted: ${!!providerEmailConfig.email_smtp_password_encrypted}`);
+  }
   const bookingDate = new Date(booking.booking_date);
   const formattedDate = bookingDate.toLocaleDateString('en-US', { 
     weekday: 'long', 
