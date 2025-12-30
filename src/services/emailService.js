@@ -9,9 +9,16 @@ const createTransporter = (providerEmailConfig = null) => {
     const { email_service_type, email_smtp_host, email_smtp_port, email_smtp_secure, email_smtp_user, email_smtp_password_encrypted } = providerEmailConfig;
     
     if (email_smtp_user && email_smtp_password_encrypted) {
-      const decryptedPassword = decrypt(email_smtp_password_encrypted);
+      let decryptedPassword;
+      try {
+        decryptedPassword = decrypt(email_smtp_password_encrypted);
+      } catch (error) {
+        console.error('❌ Failed to decrypt email password:', error.message);
+        return null;
+      }
       
       if (email_service_type === 'gmail') {
+        console.log(`📧 Creating Gmail transporter for ${email_smtp_user}`);
         return nodemailer.createTransport({
           service: 'gmail',
           auth: {
