@@ -17,7 +17,11 @@ const createTransporter = (providerEmailConfig = null) => {
           auth: {
             user: email_smtp_user,
             pass: decryptedPassword
-          }
+          },
+          // Add timeouts to prevent hanging
+          connectionTimeout: 10000, // 10 seconds
+          greetingTimeout: 5000,    // 5 seconds
+          socketTimeout: 10000      // 10 seconds
         });
       } else if (email_service_type === 'sendgrid') {
         return nodemailer.createTransport({
@@ -36,7 +40,11 @@ const createTransporter = (providerEmailConfig = null) => {
           auth: {
             user: email_smtp_user,
             pass: decryptedPassword
-          }
+          },
+          // Add timeouts to prevent hanging
+          connectionTimeout: 10000, // 10 seconds
+          greetingTimeout: 5000,    // 5 seconds
+          socketTimeout: 10000      // 10 seconds
         });
       }
     }
@@ -152,7 +160,13 @@ const sendEmail = async (emailData) => {
         mailOptions.replyTo = providerEmailConfig.email_from_address;
       }
 
-      await transporter.sendMail(mailOptions);
+      // Send email with timeout protection (max 15 seconds)
+      await Promise.race([
+        transporter.sendMail(mailOptions),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Email send timeout after 15 seconds')), 15000)
+        )
+      ]);
 
       console.log(`✅ Email sent successfully to ${recipient_email}`);
       
@@ -165,12 +179,13 @@ const sendEmail = async (emailData) => {
       }
     } catch (error) {
       console.error(`❌ Failed to send email to ${recipient_email}:`, error.message);
+      console.error(`   Full error:`, error);
       
       // Update status to failed
       if (emailRecord) {
         await query(
           'UPDATE email_notifications SET status = $1, error_message = $2 WHERE id = $3',
-          ['failed', error.message, emailRecord.id]
+          ['failed', error.message.substring(0, 500), emailRecord.id] // Limit error message length
         );
       }
     }

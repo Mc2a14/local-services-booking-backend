@@ -66,19 +66,18 @@ const createBooking = async (customerId, bookingData) => {
     email_from_name: providerResult.rows[0].email_from_name
   } : null;
 
-  // Send confirmation emails
-  try {
-    await emailService.sendBookingConfirmation(
-      booking,
-      customerResult.rows[0].email,
-      providerResult.rows[0].email,
-      providerBusinessName,
-      providerEmailConfig
-    );
-  } catch (error) {
+  // Send confirmation emails (non-blocking - fire and forget)
+  // This allows the booking response to return immediately
+  emailService.sendBookingConfirmation(
+    booking,
+    customerResult.rows[0].email,
+    providerResult.rows[0].email,
+    providerBusinessName,
+    providerEmailConfig
+  ).catch(error => {
     console.error('Failed to send booking confirmation emails:', error);
-    // Don't fail the booking if email fails
-  }
+    // Log error but don't fail the booking - email will be logged in database
+  });
 
   return booking;
 };
@@ -153,19 +152,18 @@ const createGuestBooking = async (bookingData) => {
     email_from_name: providerResult.rows[0].email_from_name
   } : null;
 
-  // Send confirmation emails
-  try {
-    await emailService.sendBookingConfirmation(
-      booking,
-      customer_email,
-      providerResult.rows[0].email,
-      providerBusinessName,
-      providerEmailConfig
-    );
-  } catch (error) {
+  // Send confirmation emails (non-blocking - fire and forget)
+  // This allows the booking response to return immediately
+  emailService.sendBookingConfirmation(
+    booking,
+    customer_email,
+    providerResult.rows[0].email,
+    providerBusinessName,
+    providerEmailConfig
+  ).catch(error => {
     console.error('Failed to send booking confirmation emails:', error);
-    // Don't fail the booking if email fails
-  }
+    // Log error but don't fail the booking - email will be logged in database
+  });
 
   return booking;
 };
