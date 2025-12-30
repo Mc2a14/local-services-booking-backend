@@ -88,7 +88,7 @@ const createGuestBooking = async (req, res) => {
     // Get full booking details with service info
     const fullBookingResult = await query(
       `SELECT b.*, s.title as service_title, s.price, s.duration_minutes, 
-       p.business_name, u.full_name as provider_name
+       p.business_name, p.business_slug, u.full_name as provider_name
        FROM bookings b
        JOIN services s ON b.service_id = s.id
        LEFT JOIN providers p ON b.provider_id = p.user_id
@@ -114,6 +114,7 @@ const createGuestBooking = async (req, res) => {
         price: fullBooking.price,
         duration_minutes: fullBooking.duration_minutes,
         business_name: fullBooking.business_name,
+        business_slug: fullBooking.business_slug,
         provider_name: fullBooking.provider_name
       }
     });
