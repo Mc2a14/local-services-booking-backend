@@ -106,17 +106,40 @@ const browseServices = async (filters = {}) => {
 
   const result = await query(queryText, params);
   
-  // Add ratings to each service
-  const servicesWithRatings = await Promise.all(
-    result.rows.map(async (service) => {
-      const rating = await reviewService.getServiceAverageRating(service.id);
-      return {
-        ...service,
-        average_rating: rating.average_rating,
-        review_count: rating.review_count
-      };
-    })
+  // Optimize: Get all ratings in a single query instead of N+1 queries
+  if (result.rows.length === 0) {
+    return [];
+  }
+  
+  const serviceIds = result.rows.map(s => s.id);
+  const { query: dbQuery } = require('../db');
+  
+  const ratingsResult = await dbQuery(
+    `SELECT 
+      service_id,
+      AVG(rating)::numeric(10,1) as average_rating,
+      COUNT(*) as review_count
+     FROM reviews
+     WHERE service_id = ANY($1::int[])
+     GROUP BY service_id`,
+    [serviceIds]
   );
+  
+  // Create a map for quick lookup
+  const ratingsMap = new Map();
+  ratingsResult.rows.forEach(row => {
+    ratingsMap.set(row.service_id, {
+      average_rating: row.average_rating,
+      review_count: parseInt(row.review_count) || 0
+    });
+  });
+  
+  // Add ratings to services
+  const servicesWithRatings = result.rows.map(service => ({
+    ...service,
+    average_rating: ratingsMap.get(service.id)?.average_rating || null,
+    review_count: ratingsMap.get(service.id)?.review_count || 0
+  }));
   
   return servicesWithRatings;
 };

@@ -14,17 +14,38 @@ const getBusinessBySlug = async (req, res) => {
     const services = await serviceService.getServicesByProviderId(provider.user_id);
     const activeServices = services.filter(s => s.is_active);
     
-    // Add ratings to each service
-    const servicesWithRatings = await Promise.all(
-      activeServices.map(async (service) => {
-        const rating = await reviewService.getServiceAverageRating(service.id);
-        return {
-          ...service,
-          average_rating: rating.average_rating,
-          review_count: rating.review_count
-        };
-      })
-    );
+    // Optimize: Get all ratings in a single query instead of N+1 queries
+    const serviceIds = activeServices.map(s => s.id);
+    let servicesWithRatings = activeServices;
+    
+    if (serviceIds.length > 0) {
+      const ratingsResult = await query(
+        `SELECT 
+          service_id,
+          AVG(rating)::numeric(10,1) as average_rating,
+          COUNT(*) as review_count
+         FROM reviews
+         WHERE service_id = ANY($1::int[])
+         GROUP BY service_id`,
+        [serviceIds]
+      );
+      
+      // Create a map for quick lookup
+      const ratingsMap = new Map();
+      ratingsResult.rows.forEach(row => {
+        ratingsMap.set(row.service_id, {
+          average_rating: row.average_rating,
+          review_count: parseInt(row.review_count) || 0
+        });
+      });
+      
+      // Add ratings to services
+      servicesWithRatings = activeServices.map(service => ({
+        ...service,
+        average_rating: ratingsMap.get(service.id)?.average_rating || null,
+        review_count: ratingsMap.get(service.id)?.review_count || 0
+      }));
+    }
 
     // Get recent reviews/testimonials (last 10 reviews)
     const reviewsResult = await query(
@@ -77,11 +98,23 @@ const searchBusinesses = async (req, res) => {
   try {
     const { q } = req.query;
     
-    if (!q || q.trim().length < 2) {
+    // Input validation and sanitization
+    if (!q || typeof q !== 'string') {
       return res.json({ businesses: [] });
     }
+    
+    const trimmedQuery = q.trim();
+    
+    if (trimmedQuery.length < 2) {
+      return res.json({ businesses: [] });
+    }
+    
+    // Prevent SQL injection and limit length
+    if (trimmedQuery.length > 100) {
+      return res.status(400).json({ error: 'Search query too long' });
+    }
 
-    const searchTerm = `%${q.trim().toLowerCase()}%`;
+    const searchTerm = `%${trimmedQuery.toLowerCase()}%`;
     
     const result = await query(
       `SELECT 
