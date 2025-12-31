@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
+    "start:migrate": "node run-migrations.js && node index.js",
     "dev": "nodemon index.js",
     "migrate": "node run-migrations.js"
   },
