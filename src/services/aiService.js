@@ -190,13 +190,13 @@ const detectLanguage = (text) => {
 };
 
 // Generate AI response using OpenAI
-const generateAIResponse = async (question, providerId, businessSlug = null) => {
+const generateAIResponse = async (question, providerId, businessSlug = null, language = 'en') => {
   validateOpenAIKey();
 
   try {
-    // Detect customer's language
-    const customerLanguage = detectLanguage(question);
-    console.log(`[AI Service] Question: "${question.substring(0, 100)}" | Detected language: ${customerLanguage}`);
+    // Use provided language, or detect from question if not provided
+    const customerLanguage = language || detectLanguage(question);
+    console.log(`[AI Service] Question: "${question.substring(0, 100)}" | Language: ${customerLanguage} (${language ? 'provided' : 'detected'})`);
     
     // Get business context
     const context = await getBusinessContext(providerId, businessSlug);

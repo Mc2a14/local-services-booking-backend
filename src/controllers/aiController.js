@@ -4,7 +4,7 @@ const providerService = require('../services/providerService');
 // Handle AI chat question
 const chat = async (req, res) => {
   try {
-    const { question, provider_id, business_slug } = req.body;
+    const { question, provider_id, business_slug, language = 'en' } = req.body;
 
     // Validation
     if (!question) {
@@ -30,8 +30,8 @@ const chat = async (req, res) => {
       throw error;
     }
 
-    // Generate AI response (use provider.id which is the UUID, pass business_slug for booking context)
-    const response = await aiService.generateAIResponse(question, provider.id, provider.business_slug);
+    // Generate AI response (use provider.id which is the UUID, pass business_slug for booking context, and language)
+    const response = await aiService.generateAIResponse(question, provider.id, provider.business_slug, language);
 
     res.json({
       question,
