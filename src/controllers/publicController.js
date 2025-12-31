@@ -72,7 +72,55 @@ const getBusinessBySlug = async (req, res) => {
   }
 };
 
+// Search businesses by name
+const searchBusinesses = async (req, res) => {
+  try {
+    const { q } = req.query;
+    
+    if (!q || q.trim().length < 2) {
+      return res.json({ businesses: [] });
+    }
+
+    const searchTerm = `%${q.trim().toLowerCase()}%`;
+    
+    const result = await query(
+      `SELECT 
+        p.id,
+        p.business_name,
+        p.business_slug,
+        p.description,
+        p.phone,
+        p.address,
+        p.business_image_url,
+        u.full_name as owner_name
+       FROM providers p
+       JOIN users u ON p.user_id = u.id
+       WHERE LOWER(p.business_name) LIKE $1
+       ORDER BY p.business_name ASC
+       LIMIT 10`,
+      [searchTerm]
+    );
+
+    const businesses = result.rows.map(provider => ({
+      id: provider.id,
+      business_name: provider.business_name,
+      business_slug: provider.business_slug,
+      description: provider.description,
+      phone: provider.phone,
+      address: provider.address,
+      business_image_url: provider.business_image_url,
+      owner_name: provider.owner_name
+    }));
+
+    res.json({ businesses });
+  } catch (error) {
+    console.error('Search businesses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
-  getBusinessBySlug
+  getBusinessBySlug,
+  searchBusinesses
 };
 
