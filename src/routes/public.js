@@ -9,3 +9,4 @@ router.get('/b/:slug', publicController.getBusinessBySlug);
 module.exports = router;
 
 
+

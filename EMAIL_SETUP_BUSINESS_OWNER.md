@@ -62,3 +62,4 @@ If a business owner doesn't provide email credentials:
 - Business owners can update their email password anytime
 
 
+

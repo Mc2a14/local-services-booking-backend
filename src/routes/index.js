@@ -9,6 +9,7 @@ const availabilityRoutes = require('./availability');
 const reviewRoutes = require('./reviews');
 const faqRoutes = require('./faqs');
 const publicRoutes = require('./public');
+const feedbackRoutes = require('./feedback');
 
 const router = express.Router();
 
@@ -23,6 +24,7 @@ router.use('/availability', availabilityRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/faqs', faqRoutes);
 router.use('/public', publicRoutes);
+router.use('/feedback', feedbackRoutes);
 
 module.exports = router;
 

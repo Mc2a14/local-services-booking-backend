@@ -15,3 +15,4 @@ ALTER TABLE providers
 CREATE INDEX IF NOT EXISTS idx_providers_email_config ON providers(user_id) WHERE email_smtp_user IS NOT NULL;
 
 
+

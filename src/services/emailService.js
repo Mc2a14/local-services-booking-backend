@@ -368,7 +368,7 @@ const sendBookingConfirmation = async (booking, customerEmail, providerEmail, pr
 };
 
 // Send booking status update email
-const sendBookingStatusUpdate = async (booking, customerEmail, oldStatus, newStatus) => {
+const sendBookingStatusUpdate = async (booking, customerEmail, oldStatus, newStatus, providerEmailConfig = null) => {
   const bookingDate = new Date(booking.booking_date);
   const formattedDate = bookingDate.toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -380,10 +380,35 @@ const sendBookingStatusUpdate = async (booking, customerEmail, oldStatus, newSta
     hour12: true
   });
 
+  // Build feedback link if status is now "completed"
+  const frontendUrl = process.env.FRONTEND_URL || 'https://atencio.app';
+  const feedbackLink = newStatus === 'completed' 
+    ? `${frontendUrl}/feedback/${booking.id}`
+    : null;
+
+  let emailContent = `<p>Your booking status has been updated!</p>
+     <p>The status of your booking has changed from <strong>${oldStatus}</strong> to <strong>${newStatus}</strong>.</p>`;
+
+  // Add feedback request if appointment is completed
+  if (newStatus === 'completed' && feedbackLink) {
+    emailContent += `
+     <div style="margin: 30px 0; padding: 20px; background-color: #f0f9ff; border-left: 4px solid #2563eb; border-radius: 5px;">
+       <h3 style="margin-top: 0; color: #2563eb;">How was your experience?</h3>
+       <p>We'd love to hear your feedback about your appointment with <strong>${booking.business_name || booking.provider_name || 'us'}</strong>.</p>
+       <p style="margin-bottom: 0;">
+         <a href="${feedbackLink}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px; font-weight: 600;">
+           Leave Feedback
+         </a>
+       </p>
+       <p style="margin-top: 10px; font-size: 12px; color: #64748b;">
+         Or copy this link: ${feedbackLink}
+       </p>
+     </div>`;
+  }
+
   const html = createEmailTemplate(
-    'Booking Status Updated',
-    `<p>Your booking status has been updated!</p>
-     <p>The status of your booking has changed from <strong>${oldStatus}</strong> to <strong>${newStatus}</strong>.</p>`,
+    newStatus === 'completed' ? 'Appointment Completed - We\'d Love Your Feedback!' : 'Booking Status Updated',
+    emailContent,
     {
       'Booking ID': `#${booking.id}`,
       'Service': booking.service_title || 'Service',
@@ -393,14 +418,23 @@ const sendBookingStatusUpdate = async (booking, customerEmail, oldStatus, newSta
     }
   );
 
+  let emailBody = `Your booking status has been updated!\n\nService: ${booking.service_title || 'Service'}\nDate: ${formattedDate}\nPrevious Status: ${oldStatus}\nNew Status: ${newStatus}`;
+  
+  if (newStatus === 'completed' && feedbackLink) {
+    emailBody += `\n\nHow was your experience? We'd love to hear your feedback!\nLeave feedback here: ${feedbackLink}`;
+  }
+
   await sendEmail({
     booking_id: booking.id,
     recipient_email: customerEmail,
     recipient_type: 'customer',
     notification_type: 'booking_status_update',
-    subject: `Booking Update - ${booking.service_title || 'Service'}`,
-    body: `Your booking status has been updated!\n\nService: ${booking.service_title || 'Service'}\nDate: ${formattedDate}\nPrevious Status: ${oldStatus}\nNew Status: ${newStatus}`,
-    html: html
+    subject: newStatus === 'completed' 
+      ? `Appointment Completed - Share Your Feedback - ${booking.service_title || 'Service'}`
+      : `Booking Update - ${booking.service_title || 'Service'}`,
+    body: emailBody,
+    html: html,
+    providerEmailConfig: providerEmailConfig
   });
 };
 

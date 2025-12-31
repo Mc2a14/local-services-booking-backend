@@ -32,3 +32,4 @@ CREATE TRIGGER update_faqs_updated_at
   EXECUTE FUNCTION update_faqs_updated_at();
 
 
+

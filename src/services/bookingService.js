@@ -288,19 +288,37 @@ const updateBookingStatus = async (bookingId, providerId, status) => {
     throw new Error('Booking not found or unauthorized');
   }
 
-  // Get additional booking details for email
+  // Get additional booking details for email (including business info and provider email config)
   const bookingDetails = await query(
     `SELECT b.*, s.title as service_title,
      COALESCE(b.customer_name, u.full_name) as customer_name,
-     COALESCE(b.customer_email, u.email) as customer_email
+     COALESCE(b.customer_email, u.email) as customer_email,
+     provider_user.full_name as provider_name,
+     p.business_name,
+     p.email_service_type, p.email_smtp_host, p.email_smtp_port, p.email_smtp_secure,
+     p.email_smtp_user, p.email_smtp_password_encrypted, p.email_from_address, p.email_from_name
      FROM bookings b
      JOIN services s ON b.service_id = s.id
      LEFT JOIN users u ON b.customer_id = u.id
+     JOIN users provider_user ON b.provider_id = provider_user.id
+     LEFT JOIN providers p ON b.provider_id = p.user_id
      WHERE b.id = $1`,
     [bookingId]
   );
   
   const booking = bookingDetails.rows[0] || result.rows[0];
+
+  // Build provider email config if available
+  const providerEmailConfig = booking.email_service_type ? {
+    email_service_type: booking.email_service_type,
+    email_smtp_host: booking.email_smtp_host,
+    email_smtp_port: booking.email_smtp_port,
+    email_smtp_secure: booking.email_smtp_secure,
+    email_smtp_user: booking.email_smtp_user,
+    email_smtp_password_encrypted: booking.email_smtp_password_encrypted,
+    email_from_address: booking.email_from_address,
+    email_from_name: booking.email_from_name
+  } : null;
 
   // Send status update email if status changed
   if (oldStatus !== status && booking.customer_email) {
@@ -309,7 +327,8 @@ const updateBookingStatus = async (bookingId, providerId, status) => {
         booking,
         booking.customer_email,
         oldStatus,
-        status
+        status,
+        providerEmailConfig
       );
     } catch (error) {
       console.error('Failed to send status update email:', error);

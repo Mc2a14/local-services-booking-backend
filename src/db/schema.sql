@@ -119,6 +119,16 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Feedback table: Private customer feedback for completed appointments
+CREATE TABLE IF NOT EXISTS feedback (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  appointment_id INTEGER NOT NULL UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+  business_id UUID NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_type ON users(user_type);
@@ -134,6 +144,9 @@ CREATE INDEX IF NOT EXISTS idx_email_notifications_booking ON email_notification
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_appointment_id ON feedback(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_business_id ON feedback(business_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_services_provider ON services(provider_id);
 CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
 CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
