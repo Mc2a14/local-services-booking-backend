@@ -162,4 +162,42 @@ const browseServices = async (req, res) => {
 // Reorder services (provider only)
 const reorderServices = async (req, res) => {
   try {
-    const { serviceOrders } = re
+    const { serviceOrders } = req.body; // Array of { id, display_order }
+
+    if (!Array.isArray(serviceOrders) || serviceOrders.length === 0) {
+      return res.status(400).json({ error: 'serviceOrders must be a non-empty array' });
+    }
+
+    // Validate each item has id and display_order
+    for (const order of serviceOrders) {
+      if (!order.id || order.display_order === undefined || order.display_order === null) {
+        return res.status(400).json({ error: 'Each service order must have id and display_order' });
+      }
+    }
+
+    await providerService.getProviderByUserId(req.user.id);
+    
+    await serviceService.reorderServices(req.user.id, serviceOrders);
+
+    res.json({ message: 'Services reordered successfully' });
+  } catch (error) {
+    console.error('Reorder services error:', error);
+    
+    if (error.message === 'Provider not found') {
+      return res.status(404).json({ error: 'Provider profile not found' });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = {
+  createService,
+  getMyServices,
+  getService,
+  updateService,
+  deleteService,
+  browseServices,
+  reorderServices
+};
+
