@@ -340,8 +340,156 @@ Provide your answer NOW in ${languageNames[customerLanguage]}, without repeating
   }
 };
 
+// Generate AI response for Atencio marketing site (business owners asking about Atencio)
+const generateAtencioAIResponse = async (message, language = 'en') => {
+  validateOpenAIKey();
+
+  try {
+    const atencioKnowledge = require('../ai/atencioKnowledge');
+    
+    // Build knowledge context from the knowledge base
+    let knowledgeContext = `COMPANY INFORMATION:\n`;
+    knowledgeContext += `Name: ${atencioKnowledge.company.name}\n`;
+    knowledgeContext += `Description: ${atencioKnowledge.company.description}\n`;
+    knowledgeContext += `Value Proposition: ${atencioKnowledge.company.valueProposition}\n\n`;
+
+    if (atencioKnowledge.features.length > 0) {
+      knowledgeContext += `FEATURES:\n`;
+      atencioKnowledge.features.forEach((feature, index) => {
+        knowledgeContext += `${index + 1}. ${feature.title}: ${feature.description}\n`;
+      });
+      knowledgeContext += `\n`;
+    }
+
+    if (atencioKnowledge.onboardingSteps.length > 0) {
+      knowledgeContext += `ONBOARDING STEPS:\n`;
+      atencioKnowledge.onboardingSteps.forEach((step) => {
+        knowledgeContext += `Step ${step.step}: ${step.title} - ${step.description}\n`;
+      });
+      knowledgeContext += `\n`;
+    }
+
+    if (atencioKnowledge.pricing && atencioKnowledge.pricing.length > 0) {
+      knowledgeContext += `PRICING:\n`;
+      atencioKnowledge.pricing.forEach((plan) => {
+        knowledgeContext += `${plan.plan}: ${plan.price}\n`;
+        if (plan.features && plan.features.length > 0) {
+          plan.features.forEach(feature => {
+            knowledgeContext += `  - ${feature}\n`;
+          });
+        }
+      });
+      knowledgeContext += `\n`;
+    }
+
+    if (atencioKnowledge.faq.length > 0) {
+      knowledgeContext += `FREQUENTLY ASKED QUESTIONS:\n`;
+      atencioKnowledge.faq.forEach((faq) => {
+        knowledgeContext += `Q: ${faq.question}\n`;
+        knowledgeContext += `A: ${faq.answer}\n\n`;
+      });
+    }
+
+    // Language-specific instructions
+    const languageNames = {
+      'es': 'Spanish (Español)',
+      'fr': 'French (Français)',
+      'pt': 'Portuguese (Português)',
+      'en': 'English'
+    };
+
+    const languageInstructions = {
+      'es': `CRITICAL LANGUAGE REQUIREMENT: 
+The user's question is in SPANISH (Español). 
+You MUST respond ONLY in SPANISH. 
+- Use Spanish grammar, vocabulary, and sentence structure
+- Do NOT translate your response to English
+- Do NOT mix languages
+- Respond entirely in Spanish`,
+      'fr': `CRITICAL LANGUAGE REQUIREMENT:
+The user's question is in FRENCH (Français).
+You MUST respond ONLY in FRENCH.
+- Use French grammar, vocabulary, and sentence structure
+- Do NOT translate your response to English
+- Do NOT mix languages
+- Respond entirely in French`,
+      'pt': `CRITICAL LANGUAGE REQUIREMENT:
+The user's question is in PORTUGUESE (Português).
+You MUST respond ONLY in PORTUGUESE.
+- Use Portuguese grammar, vocabulary, and sentence structure
+- Do NOT translate your response to English
+- Do NOT mix languages
+- Respond entirely in Portuguese`,
+      'en': `CRITICAL LANGUAGE REQUIREMENT:
+The user's question is in ENGLISH.
+You MUST respond ONLY in ENGLISH.
+- Use proper English grammar and vocabulary
+- Respond entirely in English`
+    };
+
+    // Prepare the system prompt
+    const systemPrompt = `You are Atencio, a friendly and helpful AI assistant for the Atencio booking platform. 
+You help business owners understand how Atencio works, its features, onboarding process, and benefits.
+
+${languageInstructions[language] || languageInstructions['en']}
+
+IMPORTANT RULES:
+1. ONLY answer questions related to Atencio (the booking platform, features, setup, pricing, etc.)
+2. If asked about unrelated topics, politely redirect: "I can help with questions about Atencio bookings and AI customer service."
+3. Be friendly, professional, and concise (keep answers short and clear)
+4. Use simple, non-technical language (business owners are not technical)
+5. When relevant, include clear call-to-actions (e.g., "Want help setting this up? Sign up to get started!")
+6. Do NOT make up information - only use what's provided in the knowledge base
+7. If pricing information is not available, politely say you don't have that information yet
+
+KNOWLEDGE BASE:
+${knowledgeContext}`;
+
+    const userPrompt = `User Question (${languageNames[language]}): ${message}
+
+⚠️ MANDATORY LANGUAGE REQUIREMENT ⚠️
+- DETECTED LANGUAGE: ${languageNames[language]}
+- You MUST respond in ${languageNames[language]} ONLY
+- Every word of your response must be in ${languageNames[language]}
+- Do NOT use English or any other language
+- Do NOT translate, do NOT switch languages, do NOT mix languages
+
+Provide your answer NOW in ${languageNames[language]}, without repeating the user's question.`;
+
+    // Call OpenAI API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${config.openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('Atencio AI error:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   generateAIResponse,
+  generateAtencioAIResponse,
   validateOpenAIKey
 };
 

@@ -53,7 +53,39 @@ const chat = async (req, res) => {
   }
 };
 
+// Handle Atencio marketing site AI chat (for business owners)
+const atencioChat = async (req, res) => {
+  try {
+    const { message, language = 'en' } = req.body;
+
+    // Validation
+    if (!message) {
+      return res.status(400).json({ error: 'message is required' });
+    }
+
+    // Generate AI response using Atencio knowledge base
+    const reply = await aiService.generateAtencioAIResponse(message, language);
+
+    res.json({
+      reply
+    });
+  } catch (error) {
+    console.error('Atencio AI chat error:', error);
+    
+    if (error.message === 'OpenAI API key is not configured') {
+      return res.status(503).json({ error: 'AI service is not available. OpenAI API key is not configured.' });
+    }
+    
+    if (error.message.includes('OpenAI API error')) {
+      return res.status(502).json({ error: 'AI service temporarily unavailable. Please try again later.' });
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
-  chat
+  chat,
+  atencioChat
 };
 
