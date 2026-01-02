@@ -150,6 +150,7 @@ CREATE INDEX IF NOT EXISTS idx_feedback_business_id ON feedback(business_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_services_provider ON services(provider_id);
 CREATE INDEX IF NOT EXISTS idx_services_category ON services(category);
+CREATE INDEX IF NOT EXISTS idx_services_display_order ON services(provider_id, display_order);
 CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_service ON bookings(service_id);
