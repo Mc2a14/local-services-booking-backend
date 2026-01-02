@@ -142,48 +142,4 @@ const browseServices = async (filters = {}) => {
   });
   
   // Add ratings to services
-  const servicesWithRatings = result.rows.map(service => ({
-    ...service,
-    average_rating: ratingsMap.get(service.id)?.average_rating || null,
-    review_count: ratingsMap.get(service.id)?.review_count || 0
-  }));
-  
-  return servicesWithRatings;
-};
-
-// Reorder services for a provider
-const reorderServices = async (providerId, serviceOrders) => {
-  // serviceOrders should be an array of { id, display_order }
-  // Use a transaction to update all orders atomically
-  const client = await require('../db').pool.connect();
-  
-  try {
-    await client.query('BEGIN');
-    
-    for (const { id, display_order } of serviceOrders) {
-      await client.query(
-        'UPDATE services SET display_order = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND provider_id = $3',
-        [display_order, id, providerId]
-      );
-    }
-    
-    await client.query('COMMIT');
-    return true;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
-
-module.exports = {
-  createService,
-  getServiceById,
-  getServicesByProviderId,
-  updateService,
-  deleteService,
-  browseServices,
-  reorderServices
-};
-
+  const servicesWi

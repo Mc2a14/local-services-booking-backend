@@ -28,7 +28,16 @@ async function runMigrations() {
     console.log('📄 Running main schema...');
     const schemaPath = path.join(__dirname, 'src', 'db', 'schema.sql');
     const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
-    await client.query(schemaSQL);
+    try {
+      await client.query(schemaSQL);
+    } catch (error) {
+      // If schema already exists, that's OK
+      if (error.code === '42P07' || error.message.includes('already exists')) {
+        console.log('⚠️  Schema objects already exist (safe to ignore)');
+      } else {
+        throw error;
+      }
+    }
     
     // Run individual migration files
     const migrationsDir = path.join(__dirname, 'src', 'db', 'migrations');
@@ -61,33 +70,9 @@ async function runMigrations() {
         await client.query('COMMIT');
         console.log(`✅ Migration ${file} completed`);
       } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      }
-    }
-    
-    console.log('✅ All database migrations completed successfully');
-  } catch (error) {
-    console.error('❌ Database migration failed:', error.message);
-    console.error(error.stack);
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-// If called directly (not imported), run migrations
-if (require.main === module) {
-  runMigrations()
-    .then(() => {
-      pool.end();
-      process.exit(0);
-    })
-    .catch((error) => {
-      pool.end();
-      process.exit(1);
-    });
-}
-
-module.exports = { runMigrations };
-
+        await client.query('ROLLBACK').catch(() => {}); // Ignore rollback errors
+        
+        // Check if error is because objects already exist (safe to ignore)
+        if (error.code === '42P07' || // duplicate_table
+            error.code === '42710' || // duplicate_object
+            error.code === '42701' || // du

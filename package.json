@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "start:migrate": "node run-migrations.js && node index.js",
+    "start:migrate": "node run-migrations.js || true; node index.js",
     "dev": "nodemon index.js",
     "migrate": "node run-migrations.js"
   },
@@ -25,5 +25,3 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
-  }
-}

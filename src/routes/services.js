@@ -13,11 +13,4 @@ router.post('/', authenticate, requireProvider, serviceController.createService)
 router.post('/reorder', authenticate, requireProvider, serviceController.reorderServices);
 router.get('/', authenticate, requireProvider, serviceController.getMyServices);
 router.put('/:id', authenticate, requireProvider, serviceController.updateService);
-router.delete('/:id', authenticate, requireProvider, serviceController.deleteService);
-
-module.exports = router;
-
-
-
-
-
+router.delete('/:id', authe
