@@ -155,4 +155,6 @@ CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_service ON bookings(service_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date);
-CREATE INDEX IF NOT EXISTS idx_bookings_s
+CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+CREATE INDEX IF NOT EXISTS idx_providers_business_name_lower ON providers(LOWER(business_name));
+

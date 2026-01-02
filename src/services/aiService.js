@@ -345,18 +345,27 @@ const generateAtencioAIResponse = async (message, language = 'en') => {
   validateOpenAIKey();
 
   try {
-    const atencioKnowledge = require('../ai/atencioKnowledge');
+    // Load knowledge base from JSON file
+    const fs = require('fs');
+    const path = require('path');
+    const knowledgePath = path.join(__dirname, '../ai/atencioKnowledge.json');
+    const knowledgeData = fs.readFileSync(knowledgePath, 'utf8');
+    const atencioKnowledge = JSON.parse(knowledgeData);
     
     // Build knowledge context from the knowledge base
     let knowledgeContext = `COMPANY INFORMATION:\n`;
-    knowledgeContext += `Name: ${atencioKnowledge.company.name}\n`;
-    knowledgeContext += `Description: ${atencioKnowledge.company.description}\n`;
-    knowledgeContext += `Value Proposition: ${atencioKnowledge.company.valueProposition}\n\n`;
+    knowledgeContext += `Name: ${atencioKnowledge.brand.name}\n`;
+    knowledgeContext += `Tagline: ${atencioKnowledge.brand.tagline}\n`;
+    knowledgeContext += `Description: ${atencioKnowledge.brand.description}\n`;
+    knowledgeContext += `Value Proposition: ${atencioKnowledge.brand.valueProposition}\n\n`;
+    
+    knowledgeContext += `WHO IT'S FOR:\n${atencioKnowledge.whoItsFor}\n\n`;
+    knowledgeContext += `WHAT IT DOES:\n${atencioKnowledge.whatItDoes}\n\n`;
 
-    if (atencioKnowledge.features.length > 0) {
-      knowledgeContext += `FEATURES:\n`;
-      atencioKnowledge.features.forEach((feature, index) => {
-        knowledgeContext += `${index + 1}. ${feature.title}: ${feature.description}\n`;
+    if (atencioKnowledge.keyBenefits && atencioKnowledge.keyBenefits.length > 0) {
+      knowledgeContext += `KEY BENEFITS & FEATURES:\n`;
+      atencioKnowledge.keyBenefits.forEach((benefit, index) => {
+        knowledgeContext += `${index + 1}. ${benefit.title}: ${benefit.description}\n`;
       });
       knowledgeContext += `\n`;
     }
@@ -369,25 +378,48 @@ const generateAtencioAIResponse = async (message, language = 'en') => {
       knowledgeContext += `\n`;
     }
 
-    if (atencioKnowledge.pricing && atencioKnowledge.pricing.length > 0) {
-      knowledgeContext += `PRICING:\n`;
-      atencioKnowledge.pricing.forEach((plan) => {
-        knowledgeContext += `${plan.plan}: ${plan.price}\n`;
+    // Add pricing information
+    knowledgeContext += `PRICING:\n`;
+    if (atencioKnowledge.pricing.freeTrial) {
+      knowledgeContext += `Free Trial: ${atencioKnowledge.pricing.freeTrial}\n`;
+    }
+    if (atencioKnowledge.pricing.plans && atencioKnowledge.pricing.plans.length > 0) {
+      atencioKnowledge.pricing.plans.forEach((plan) => {
+        knowledgeContext += `${plan.plan || plan.name}: ${plan.price}\n`;
+        if (plan.description) {
+          knowledgeContext += `  ${plan.description}\n`;
+        }
         if (plan.features && plan.features.length > 0) {
           plan.features.forEach(feature => {
             knowledgeContext += `  - ${feature}\n`;
           });
         }
       });
-      knowledgeContext += `\n`;
     }
+    if (atencioKnowledge.pricing.pricingNotes) {
+      knowledgeContext += `Note: ${atencioKnowledge.pricing.pricingNotes}\n`;
+    }
+    knowledgeContext += `\n`;
 
-    if (atencioKnowledge.faq.length > 0) {
+    if (atencioKnowledge.faqs && atencioKnowledge.faqs.length > 0) {
       knowledgeContext += `FREQUENTLY ASKED QUESTIONS:\n`;
-      atencioKnowledge.faq.forEach((faq) => {
+      atencioKnowledge.faqs.forEach((faq) => {
         knowledgeContext += `Q: ${faq.question}\n`;
         knowledgeContext += `A: ${faq.answer}\n\n`;
       });
+    }
+    
+    // Add AI tone guidelines
+    if (atencioKnowledge.aiTone) {
+      knowledgeContext += `AI TONE & PERSONALITY:\n`;
+      knowledgeContext += `Personality: ${atencioKnowledge.aiTone.personality}\n`;
+      if (atencioKnowledge.aiTone.guidelines && atencioKnowledge.aiTone.guidelines.length > 0) {
+        knowledgeContext += `Guidelines:\n`;
+        atencioKnowledge.aiTone.guidelines.forEach(guideline => {
+          knowledgeContext += `- ${guideline}\n`;
+        });
+      }
+      knowledgeContext += `\n`;
     }
 
     // Language-specific instructions
@@ -439,8 +471,10 @@ IMPORTANT RULES:
 3. Be friendly, professional, and concise (keep answers short and clear)
 4. Use simple, non-technical language (business owners are not technical)
 5. When relevant, include clear call-to-actions (e.g., "Want help setting this up? Sign up to get started!")
-6. Do NOT make up information - only use what's provided in the knowledge base
-7. If pricing information is not available, politely say you don't have that information yet
+6. Do NOT make up information - only use what's provided in the knowledge base below
+7. If pricing information is not fully defined in the knowledge base, refer to the pricing notes provided
+8. Follow the AI tone and personality guidelines provided in the knowledge base
+9. Never hallucinate features or pricing - if something isn't in the knowledge base, politely say you don't have that information or redirect to what Atencio does offer
 
 KNOWLEDGE BASE:
 ${knowledgeContext}`;
