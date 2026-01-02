@@ -6,9 +6,16 @@ const reviewService = require('./reviewService');
 const createService = async (providerId, serviceData) => {
   const { title, description, category, price, duration_minutes, image_url } = serviceData;
 
+  // Get the max display_order for this provider and add 1
+  const maxOrderResult = await query(
+    'SELECT COALESCE(MAX(display_order), -1) as max_order FROM services WHERE provider_id = $1',
+    [providerId]
+  );
+  const displayOrder = (maxOrderResult.rows[0].max_order || -1) + 1;
+
   const result = await query(
-    'INSERT INTO services (provider_id, title, description, category, price, duration_minutes, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, provider_id, title, description, category, price, duration_minutes, image_url, is_active, created_at, updated_at',
-    [providerId, title, description || null, category || null, price, duration_minutes || null, image_url || null]
+    'INSERT INTO services (provider_id, title, description, category, price, duration_minutes, image_url, display_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, provider_id, title, description, category, price, duration_minutes, image_url, is_active, display_order, created_at, updated_at',
+    [providerId, title, description || null, category || null, price, duration_minutes || null, image_url || null, displayOrder]
   );
 
   return result.rows[0];
@@ -38,7 +45,7 @@ const getServiceById = async (serviceId) => {
 // Get all services for a provider
 const getServicesByProviderId = async (providerId) => {
   const result = await query(
-    'SELECT * FROM services WHERE provider_id = $1 ORDER BY created_at DESC',
+    'SELECT * FROM services WHERE provider_id = $1 ORDER BY display_order ASC, created_at DESC',
     [providerId]
   );
 
@@ -101,7 +108,7 @@ const browseServices = async (filters = {}) => {
     params.push(`%${search}%`);
   }
 
-  queryText += ` ORDER BY s.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+  queryText += ` ORDER BY s.display_order ASC, s.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
   params.push(limit, offset);
 
   const result = await query(queryText, params);
@@ -144,12 +151,39 @@ const browseServices = async (filters = {}) => {
   return servicesWithRatings;
 };
 
+// Reorder services for a provider
+const reorderServices = async (providerId, serviceOrders) => {
+  // serviceOrders should be an array of { id, display_order }
+  // Use a transaction to update all orders atomically
+  const client = await require('../db').pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    for (const { id, display_order } of serviceOrders) {
+      await client.query(
+        'UPDATE services SET display_order = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND provider_id = $3',
+        [display_order, id, providerId]
+      );
+    }
+    
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createService,
   getServiceById,
   getServicesByProviderId,
   updateService,
   deleteService,
-  browseServices
+  browseServices,
+  reorderServices
 };
 

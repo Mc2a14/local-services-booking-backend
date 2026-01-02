@@ -13,3 +13,4 @@ CREATE INDEX IF NOT EXISTS idx_feedback_appointment_id ON feedback(appointment_i
 CREATE INDEX IF NOT EXISTS idx_feedback_business_id ON feedback(business_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at DESC);
 
+

@@ -67,3 +67,4 @@ If still pending after 24-48 hours:
 - [ ] Resend DNS checker: Used https://dns.email
 - [ ] Verification restarted: Clicked "Restart verification" in Resend
 
+

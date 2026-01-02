@@ -7,3 +7,4 @@ CREATE INDEX IF NOT EXISTS idx_reviews_service_id ON reviews(service_id);
 -- Add index for provider_id in reviews for faster testimonials query
 CREATE INDEX IF NOT EXISTS idx_reviews_provider_id ON reviews(provider_id);
 
+
