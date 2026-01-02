@@ -43,8 +43,15 @@
   ],
   "pricing": {
     "freeTrial": "Free to get started - no credit card required",
-    "plans": [],
-    "pricingNotes": "Atencio offers flexible pricing plans. Contact us or visit our website for current pricing details. We're committed to making professional booking tools accessible to all local businesses."
+    "plans": [ 
+        {
+        "name": "Free Trial",
+        "price": "$0",
+        "duration": "14 days",
+        "description": "Full access to all Atencio features during the 14-day trial. No credit card required."
+      } 
+    ],
+    "pricingNotes": "After the free trial, flexible plans will be available, feel free to Contact us for more information."
   },
   "onboardingSteps": [
     {
@@ -101,7 +108,7 @@
     },
     {
       "question": "What information do I need to set up my account?",
-      "answer": "You'll need your business name, description, contact information (email, phone), and at least one service. You can also add business hours, FAQs, and other details to enhance your booking page."
+      "answer": "All you need is your business name and contact information (email, phone)"
     },
     {
       "question": "Is there a mobile app?",
@@ -109,7 +116,7 @@
     },
     {
       "question": "How do I get started?",
-      "answer": "Simply sign up for an account, complete your business profile, add your services, set your business hours, and optionally add FAQs. Once setup is complete, you can share your booking page link with customers to start receiving bookings."
+      "answer": "Simply go to atencio.app and click on 'Get Started' to sign up for an account, complete your business profile, our simple setup wizard will guide you through the process."
     }
   ],
   "aiTone": {
