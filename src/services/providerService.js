@@ -163,10 +163,48 @@ const updateProvider = async (userId, providerData) => {
   // Determine the slug to use
   let finalSlug = business_slug;
   
+  // Get the business name that will be used (either the new one or keep current)
+  const newBusinessName = business_name && business_name.trim() ? business_name.trim() : currentProvider.business_name;
+  
   // If business_name is being updated and it's different from current name, auto-generate new slug
   if (business_name && business_name.trim() && business_name.trim() !== currentProvider.business_name) {
     finalSlug = await generateSlug(business_name.trim());
-  } 
+  }
+  // If no explicit slug provided, check if current slug matches what it should be based on business name
+  // (This handles cases where business name was changed before slug auto-update was implemented)
+  else if ((business_slug === undefined || business_slug === null || business_slug === '') && newBusinessName) {
+    // Generate what the slug SHOULD be based on the business name
+    let baseSlug = newBusinessName
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 50);
+    
+    if (!baseSlug) {
+      baseSlug = 'business-' + Date.now();
+    }
+    
+    // Check if the current slug matches what it should be
+    // If not, generate a new unique slug (excluding current provider's slug from uniqueness check)
+    if (currentProvider.business_slug !== baseSlug) {
+      // Generate unique slug, but exclude current provider from uniqueness check
+      let slug = baseSlug;
+      let counter = 1;
+      while (true) {
+        const existing = await query('SELECT id FROM providers WHERE business_slug = $1 AND user_id != $2', [slug, userId]);
+        if (existing.rows.length === 0) {
+          break;
+        }
+        slug = `${baseSlug}-${counter}`;
+        counter++;
+      }
+      finalSlug = slug;
+    } else {
+      finalSlug = currentProvider.business_slug;
+    }
+  }
   // If slug is explicitly provided, validate it doesn't conflict (unless it's the current slug)
   else if (business_slug !== undefined && business_slug !== null && business_slug !== '' && business_slug !== currentProvider.business_slug) {
     const existing = await query('SELECT id FROM providers WHERE business_slug = $1 AND user_id != $2', [business_slug, userId]);
@@ -175,7 +213,7 @@ const updateProvider = async (userId, providerData) => {
     }
     finalSlug = business_slug;
   }
-  // If no slug provided and business_name hasn't changed, keep current slug
+  // If no changes needed, keep current slug
   else if (!finalSlug) {
     finalSlug = currentProvider.business_slug;
   }
