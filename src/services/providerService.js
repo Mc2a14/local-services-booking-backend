@@ -161,18 +161,29 @@ const updateProvider = async (userId, providerData) => {
   }
 
   // Determine the slug to use
-  let finalSlug = business_slug;
-  
   // Get the business name that will be used (either the new one or keep current)
   const newBusinessName = business_name && business_name.trim() ? business_name.trim() : currentProvider.business_name;
+  
+  // Determine if slug was explicitly changed by user (different from current)
+  const slugExplicitlyChanged = business_slug !== undefined && business_slug !== null && business_slug !== '' && business_slug !== currentProvider.business_slug;
+  
+  let finalSlug;
   
   // If business_name is being updated and it's different from current name, auto-generate new slug
   if (business_name && business_name.trim() && business_name.trim() !== currentProvider.business_name) {
     finalSlug = await generateSlug(business_name.trim());
   }
-  // If no explicit slug provided, check if current slug matches what it should be based on business name
+  // If slug was explicitly changed by user, validate it doesn't conflict
+  else if (slugExplicitlyChanged) {
+    const existing = await query('SELECT id FROM providers WHERE business_slug = $1 AND user_id != $2', [business_slug, userId]);
+    if (existing.rows.length > 0) {
+      throw new Error('This business URL is already taken. Please choose another.');
+    }
+    finalSlug = business_slug;
+  }
+  // Otherwise, check if current slug matches what it should be based on business name
   // (This handles cases where business name was changed before slug auto-update was implemented)
-  else if ((business_slug === undefined || business_slug === null || business_slug === '') && newBusinessName) {
+  else if (newBusinessName) {
     // Generate what the slug SHOULD be based on the business name
     let baseSlug = newBusinessName
       .toLowerCase()
@@ -204,17 +215,7 @@ const updateProvider = async (userId, providerData) => {
     } else {
       finalSlug = currentProvider.business_slug;
     }
-  }
-  // If slug is explicitly provided, validate it doesn't conflict (unless it's the current slug)
-  else if (business_slug !== undefined && business_slug !== null && business_slug !== '' && business_slug !== currentProvider.business_slug) {
-    const existing = await query('SELECT id FROM providers WHERE business_slug = $1 AND user_id != $2', [business_slug, userId]);
-    if (existing.rows.length > 0) {
-      throw new Error('This business URL is already taken. Please choose another.');
-    }
-    finalSlug = business_slug;
-  }
-  // If no changes needed, keep current slug
-  else if (!finalSlug) {
+  } else {
     finalSlug = currentProvider.business_slug;
   }
 
