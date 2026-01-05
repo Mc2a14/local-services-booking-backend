@@ -7,3 +7,4 @@ UPDATE services SET display_order = id WHERE display_order = 0 OR display_order 
 -- Create index for faster sorting
 CREATE INDEX IF NOT EXISTS idx_services_display_order ON services(provider_id, display_order);
 
+

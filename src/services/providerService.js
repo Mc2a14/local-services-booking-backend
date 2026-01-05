@@ -142,6 +142,13 @@ const updateProvider = async (userId, providerData) => {
     throw new Error('User email not found');
   }
 
+  // Get current provider to check if business_name changed
+  const currentProviderResult = await query('SELECT business_name, business_slug FROM providers WHERE user_id = $1', [userId]);
+  if (currentProviderResult.rows.length === 0) {
+    throw new Error('Provider not found');
+  }
+  const currentProvider = currentProviderResult.rows[0];
+
   // Encrypt password if provided
   let encryptedPassword = null;
   if (email_password && email_password.trim()) {
@@ -153,12 +160,24 @@ const updateProvider = async (userId, providerData) => {
     }
   }
 
-  // Handle slug update - only if provided and doesn't conflict
-  if (business_slug !== undefined && business_slug !== null && business_slug !== '') {
+  // Determine the slug to use
+  let finalSlug = business_slug;
+  
+  // If business_name is being updated and it's different from current name, auto-generate new slug
+  if (business_name && business_name.trim() && business_name.trim() !== currentProvider.business_name) {
+    finalSlug = await generateSlug(business_name.trim());
+  } 
+  // If slug is explicitly provided, validate it doesn't conflict (unless it's the current slug)
+  else if (business_slug !== undefined && business_slug !== null && business_slug !== '' && business_slug !== currentProvider.business_slug) {
     const existing = await query('SELECT id FROM providers WHERE business_slug = $1 AND user_id != $2', [business_slug, userId]);
     if (existing.rows.length > 0) {
       throw new Error('This business URL is already taken. Please choose another.');
     }
+    finalSlug = business_slug;
+  }
+  // If no slug provided and business_name hasn't changed, keep current slug
+  else if (!finalSlug) {
+    finalSlug = currentProvider.business_slug;
   }
 
   // Build update query - conditionally update email config only if password is provided
@@ -186,7 +205,7 @@ const updateProvider = async (userId, providerData) => {
         description || null, 
         phone || null, 
         address || null,
-        business_slug || null,
+        finalSlug || null,
         business_image_url || null,
         email_service_type || (hasEmailPassword ? 'gmail' : null),
         hasEmailPassword ? userEmail : null,

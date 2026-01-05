@@ -8,3 +8,4 @@ CREATE INDEX IF NOT EXISTS idx_reviews_service_id ON reviews(service_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_provider_id ON reviews(provider_id);
 
 
+
