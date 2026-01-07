@@ -34,7 +34,7 @@ const generateSlug = async (businessName) => {
 
 // Create a new provider
 const createProvider = async (userId, providerData) => {
-  const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url } = providerData;
+  const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url, booking_enabled, inquiry_collection_enabled } = providerData;
 
   // Get user's email address
   const userResult = await query('SELECT email, full_name FROM users WHERE id = $1', [userId]);
@@ -74,9 +74,9 @@ const createProvider = async (userId, providerData) => {
   const result = await query(
     `INSERT INTO providers (user_id, business_name, business_slug, description, phone, address, business_image_url,
      email_service_type, email_smtp_user, email_smtp_password_encrypted, 
-     email_from_address, email_from_name) 
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) 
-     RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at`,
+     email_from_address, email_from_name, booking_enabled, inquiry_collection_enabled) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+     RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, booking_enabled, inquiry_collection_enabled, created_at`,
     [
       userId, 
       business_name,
@@ -89,7 +89,9 @@ const createProvider = async (userId, providerData) => {
       email_password ? userEmail : null,
       encryptedPassword,
       userEmail,
-      business_name
+      business_name,
+      booking_enabled !== undefined ? booking_enabled : true,
+      inquiry_collection_enabled !== undefined ? inquiry_collection_enabled : true
     ]
   );
 
@@ -232,8 +234,8 @@ const updateProvider = async (userId, providerData) => {
            address = COALESCE($4, address),
            business_slug = COALESCE($5::VARCHAR, business_slug),
            business_image_url = COALESCE($6, business_image_url),
-           booking_enabled = COALESCE($13, booking_enabled),
-           inquiry_collection_enabled = COALESCE($14, inquiry_collection_enabled),
+           booking_enabled = CASE WHEN $13 IS NOT NULL THEN $13::BOOLEAN ELSE booking_enabled END,
+           inquiry_collection_enabled = CASE WHEN $14 IS NOT NULL THEN $14::BOOLEAN ELSE inquiry_collection_enabled END,
            email_service_type = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
            email_smtp_user = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
            email_smtp_password_encrypted = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($9::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,

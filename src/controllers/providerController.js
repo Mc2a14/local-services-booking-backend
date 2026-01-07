@@ -3,7 +3,7 @@ const providerService = require('../services/providerService');
 // Create a new provider
 const createProvider = async (req, res) => {
   try {
-    const { business_name, description, phone, address, email_password, email_service_type, business_slug } = req.body;
+    const { business_name, description, phone, address, email_password, email_service_type, business_slug, booking_enabled, inquiry_collection_enabled } = req.body;
 
     // Validation
     if (!business_name) {
@@ -20,7 +20,9 @@ const createProvider = async (req, res) => {
       address,
       email_password, // App password for their email (Gmail App Password, etc.)
       email_service_type: email_service_type || 'gmail', // Default to Gmail
-      business_slug // Optional - will be auto-generated from business_name if not provided
+      business_slug, // Optional - will be auto-generated from business_name if not provided
+      booking_enabled: booking_enabled !== undefined ? booking_enabled : true, // Default to true
+      inquiry_collection_enabled: inquiry_collection_enabled !== undefined ? inquiry_collection_enabled : true // Default to true
     });
 
     res.status(201).json({
@@ -58,7 +60,7 @@ const getMyProvider = async (req, res) => {
 // Update current user's provider profile
 const updateMyProvider = async (req, res) => {
   try {
-    const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url } = req.body;
+    const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url, booking_enabled, inquiry_collection_enabled } = req.body;
 
     const provider = await providerService.updateProvider(req.user.id, {
       business_name,
@@ -68,7 +70,9 @@ const updateMyProvider = async (req, res) => {
       email_password, // Can update email password if needed
       email_service_type,
       business_slug, // Allow updating slug
-      business_image_url // Allow updating business image
+      business_image_url, // Allow updating business image
+      booking_enabled, // Allow updating booking enabled flag
+      inquiry_collection_enabled // Allow updating inquiry collection enabled flag
     });
 
     res.json({
