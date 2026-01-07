@@ -17,4 +17,3 @@ CREATE INDEX IF NOT EXISTS idx_bookings_customer_email ON bookings(customer_emai
 
 
 
-
