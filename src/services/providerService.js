@@ -284,30 +284,6 @@ const updateProvider = async (userId, providerData) => {
        RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, booking_enabled, inquiry_collection_enabled, created_at`,
       params
     );
-           email_service_type = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
-           email_smtp_user = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
-           email_smtp_password_encrypted = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($9::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,
-           email_from_address = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($10, email_from_address) ELSE email_from_address END,
-           email_from_name = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($11, email_from_name) ELSE email_from_name END
-       WHERE user_id = $12 
-       RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, booking_enabled, inquiry_collection_enabled, created_at`,
-      [
-        business_name || null, 
-        description || null, 
-        phone || null, 
-        address || null,
-        finalSlug || null,
-        business_image_url || null,
-        email_service_type || (hasEmailPassword ? 'gmail' : null),
-        hasEmailPassword ? userEmail : null,
-        encryptedPassword,
-        hasEmailPassword ? userEmail : null,
-        hasEmailPassword ? (business_name || null) : null,
-        userId,
-        bookingEnabledParam,
-        inquiryCollectionEnabledParam
-      ]
-    );
 
     if (result.rows.length === 0) {
       throw new Error('Provider not found');
