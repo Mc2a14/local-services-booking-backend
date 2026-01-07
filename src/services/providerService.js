@@ -226,56 +226,61 @@ const updateProvider = async (userId, providerData) => {
     // Cast encryptedPassword to TEXT explicitly so PostgreSQL knows the type
     const hasEmailPassword = encryptedPassword !== null;
     
-    // Prepare boolean parameters - always send boolean (true/false) or use conditional update
-    // Use a different approach: only update if value is provided
-    let bookingEnabledUpdate = '';
-    let inquiryCollectionUpdate = '';
+    // Build the SQL dynamically to handle optional boolean parameters
+    const setClauses = [
+      'business_name = COALESCE($1, business_name)',
+      'description = COALESCE($2, description)',
+      'phone = COALESCE($3, phone)',
+      'address = COALESCE($4, address)',
+      'business_slug = COALESCE($5::VARCHAR, business_slug)',
+      'business_image_url = COALESCE($6, business_image_url)'
+    ];
+    
     const params = [
       business_name || null, 
       description || null, 
       phone || null, 
       address || null,
       finalSlug || null,
-      business_image_url || null,
+      business_image_url || null
+    ];
+    
+    // Add boolean parameters if provided
+    if (booking_enabled !== undefined) {
+      params.push(booking_enabled);
+      setClauses.push(`booking_enabled = $${params.length}::BOOLEAN`);
+    }
+    
+    if (inquiry_collection_enabled !== undefined) {
+      params.push(inquiry_collection_enabled);
+      setClauses.push(`inquiry_collection_enabled = $${params.length}::BOOLEAN`);
+    }
+    
+    // Add email config parameters
+    const emailParamStart = params.length + 1;
+    params.push(
       email_service_type || (hasEmailPassword ? 'gmail' : null),
       hasEmailPassword ? userEmail : null,
       encryptedPassword,
       hasEmailPassword ? userEmail : null,
-      hasEmailPassword ? (business_name || null) : null,
-      userId
-    ];
-
-    // Add boolean parameters conditionally
-    if (booking_enabled !== undefined) {
-      params.push(booking_enabled);
-      bookingEnabledUpdate = `booking_enabled = $${params.length},`;
-    } else {
-      bookingEnabledUpdate = `booking_enabled = booking_enabled,`;
-    }
-
-    if (inquiry_collection_enabled !== undefined) {
-      params.push(inquiry_collection_enabled);
-      inquiryCollectionUpdate = `inquiry_collection_enabled = $${params.length},`;
-    } else {
-      inquiryCollectionUpdate = `inquiry_collection_enabled = inquiry_collection_enabled,`;
-    }
+      hasEmailPassword ? (business_name || null) : null
+    );
+    
+    // Add email config clauses
+    setClauses.push(`email_service_type = CASE WHEN $${emailParamStart + 2}::TEXT IS NOT NULL THEN COALESCE($${emailParamStart}, email_service_type) ELSE email_service_type END`);
+    setClauses.push(`email_smtp_user = CASE WHEN $${emailParamStart + 2}::TEXT IS NOT NULL THEN COALESCE($${emailParamStart + 1}, email_smtp_user) ELSE email_smtp_user END`);
+    setClauses.push(`email_smtp_password_encrypted = CASE WHEN $${emailParamStart + 2}::TEXT IS NOT NULL THEN COALESCE($${emailParamStart + 2}::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END`);
+    setClauses.push(`email_from_address = CASE WHEN $${emailParamStart + 2}::TEXT IS NOT NULL THEN COALESCE($${emailParamStart + 3}, email_from_address) ELSE email_from_address END`);
+    setClauses.push(`email_from_name = CASE WHEN $${emailParamStart + 2}::TEXT IS NOT NULL THEN COALESCE($${emailParamStart + 4}, email_from_name) ELSE email_from_name END`);
+    
+    // Add user_id parameter
+    params.push(userId);
+    const userIdParam = params.length;
 
     const result = await query(
       `UPDATE providers 
-       SET business_name = COALESCE($1, business_name), 
-           description = COALESCE($2, description), 
-           phone = COALESCE($3, phone), 
-           address = COALESCE($4, address),
-           business_slug = COALESCE($5::VARCHAR, business_slug),
-           business_image_url = COALESCE($6, business_image_url),
-           ${bookingEnabledUpdate}
-           ${inquiryCollectionUpdate}
-           email_service_type = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
-           email_smtp_user = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
-           email_smtp_password_encrypted = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($9::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,
-           email_from_address = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($10, email_from_address) ELSE email_from_address END,
-           email_from_name = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($11, email_from_name) ELSE email_from_name END
-       WHERE user_id = $12 
+       SET ${setClauses.join(', ')}
+       WHERE user_id = $${userIdParam} 
        RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, booking_enabled, inquiry_collection_enabled, created_at`,
       params
     );
