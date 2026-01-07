@@ -78,8 +78,8 @@ const getBusinessBySlug = async (req, res) => {
         address: provider.address,
         business_image_url: provider.business_image_url,
         owner_name: provider.owner_name,
-        booking_enabled: provider.booking_enabled === true || provider.booking_enabled === null || provider.booking_enabled === undefined, // Explicitly check for true or null/undefined (defaults to true)
-        inquiry_collection_enabled: provider.inquiry_collection_enabled === true || provider.inquiry_collection_enabled === null || provider.inquiry_collection_enabled === undefined // Explicitly check for true or null/undefined (defaults to true)
+        booking_enabled: provider.booking_enabled !== false, // Default to true if null/undefined
+        inquiry_collection_enabled: provider.inquiry_collection_enabled !== false // Default to true if null/undefined
       },
       services: servicesWithRatings,
       testimonials: testimonials
