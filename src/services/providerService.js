@@ -226,9 +226,39 @@ const updateProvider = async (userId, providerData) => {
     // Cast encryptedPassword to TEXT explicitly so PostgreSQL knows the type
     const hasEmailPassword = encryptedPassword !== null;
     
-    // Prepare boolean parameters with explicit casting
-    const bookingEnabledParam = booking_enabled !== undefined ? booking_enabled : null;
-    const inquiryCollectionEnabledParam = inquiry_collection_enabled !== undefined ? inquiry_collection_enabled : null;
+    // Prepare boolean parameters - always send boolean (true/false) or use conditional update
+    // Use a different approach: only update if value is provided
+    let bookingEnabledUpdate = '';
+    let inquiryCollectionUpdate = '';
+    const params = [
+      business_name || null, 
+      description || null, 
+      phone || null, 
+      address || null,
+      finalSlug || null,
+      business_image_url || null,
+      email_service_type || (hasEmailPassword ? 'gmail' : null),
+      hasEmailPassword ? userEmail : null,
+      encryptedPassword,
+      hasEmailPassword ? userEmail : null,
+      hasEmailPassword ? (business_name || null) : null,
+      userId
+    ];
+
+    // Add boolean parameters conditionally
+    if (booking_enabled !== undefined) {
+      params.push(booking_enabled);
+      bookingEnabledUpdate = `booking_enabled = $${params.length},`;
+    } else {
+      bookingEnabledUpdate = `booking_enabled = booking_enabled,`;
+    }
+
+    if (inquiry_collection_enabled !== undefined) {
+      params.push(inquiry_collection_enabled);
+      inquiryCollectionUpdate = `inquiry_collection_enabled = $${params.length},`;
+    } else {
+      inquiryCollectionUpdate = `inquiry_collection_enabled = inquiry_collection_enabled,`;
+    }
 
     const result = await query(
       `UPDATE providers 
@@ -238,8 +268,17 @@ const updateProvider = async (userId, providerData) => {
            address = COALESCE($4, address),
            business_slug = COALESCE($5::VARCHAR, business_slug),
            business_image_url = COALESCE($6, business_image_url),
-           booking_enabled = CASE WHEN $13::BOOLEAN IS NOT NULL THEN $13::BOOLEAN ELSE booking_enabled END,
-           inquiry_collection_enabled = CASE WHEN $14::BOOLEAN IS NOT NULL THEN $14::BOOLEAN ELSE inquiry_collection_enabled END,
+           ${bookingEnabledUpdate}
+           ${inquiryCollectionUpdate}
+           email_service_type = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
+           email_smtp_user = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
+           email_smtp_password_encrypted = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($9::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,
+           email_from_address = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($10, email_from_address) ELSE email_from_address END,
+           email_from_name = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($11, email_from_name) ELSE email_from_name END
+       WHERE user_id = $12 
+       RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, booking_enabled, inquiry_collection_enabled, created_at`,
+      params
+    );
            email_service_type = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
            email_smtp_user = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
            email_smtp_password_encrypted = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($9::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,
