@@ -31,11 +31,12 @@ const chat = async (req, res) => {
     }
 
     // Generate AI response (use provider.id which is the UUID, pass business_slug for booking context, and language)
-    const response = await aiService.generateAIResponse(question, provider.id, provider.business_slug, language);
+    const aiResult = await aiService.generateAIResponse(question, provider.id, provider.business_slug, language);
 
     res.json({
       question,
-      response,
+      response: aiResult.response,
+      shouldCollectInfo: aiResult.shouldCollectInfo || false,
       business_name: provider.business_name
     });
   } catch (error) {

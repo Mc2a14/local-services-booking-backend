@@ -10,6 +10,7 @@ const reviewRoutes = require('./reviews');
 const faqRoutes = require('./faqs');
 const publicRoutes = require('./public');
 const feedbackRoutes = require('./feedback');
+const inquiryRoutes = require('./inquiries');
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.use('/reviews', reviewRoutes);
 router.use('/faqs', faqRoutes);
 router.use('/public', publicRoutes);
 router.use('/feedback', feedbackRoutes);
+router.use('/inquiries', inquiryRoutes);
 
 module.exports = router;
 

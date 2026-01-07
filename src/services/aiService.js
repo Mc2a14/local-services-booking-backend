@@ -275,6 +275,11 @@ CRITICAL INSTRUCTIONS FOR TIME AND HOURS:
 - Always check the Business Hours section to determine if a requested time falls within operating hours
 - When asked about availability at a specific time, check if that time is within the business hours for that day
 
+LEAD COLLECTION DETECTION:
+- If the customer asks to be contacted, wants to discuss something privately, needs personalized help, has a complex request, wants a quote, or asks for someone to call/email them, you should suggest collecting their information.
+- However, if the question can be fully answered with the information provided, do NOT suggest collecting info.
+- Only suggest collecting info when follow-up from the business owner would be helpful or necessary.
+
 If you don't know the answer based on the provided information, politely say so and suggest they contact the business directly.
 Always be professional and helpful.`;
 
@@ -333,7 +338,52 @@ Provide your answer NOW in ${languageNames[customerLanguage]}, without repeating
     }
 
     const data = await response.json();
-    return data.choices[0].message.content.trim();
+    const aiResponse = data.choices[0].message.content.trim();
+
+    // Determine if we should suggest collecting customer information
+    // Make a lightweight AI call to analyze if lead collection is appropriate
+    let shouldCollectInfo = false;
+    try {
+      const detectionPrompt = `Analyze this customer question and determine if the business owner should follow up with the customer.
+
+Customer Question: "${question}"
+
+Respond with ONLY "YES" or "NO" (nothing else):
+- Respond "YES" if the customer wants to be contacted, needs personalized help, has a complex request, wants a quote, asks someone to call/email them, or if follow-up would be beneficial.
+- Respond "NO" if the question can be fully answered with general information or doesn't require follow-up.`;
+
+      const detectionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.openaiApiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: 'You are a simple analyzer. Respond with only YES or NO.' },
+            { role: 'user', content: detectionPrompt }
+          ],
+          max_tokens: 10,
+          temperature: 0.3
+        })
+      });
+
+      if (detectionResponse.ok) {
+        const detectionData = await detectionResponse.json();
+        const detectionResult = detectionData.choices[0].message.content.trim().toUpperCase();
+        shouldCollectInfo = detectionResult.includes('YES');
+      }
+    } catch (error) {
+      console.error('Error detecting if info collection needed:', error);
+      // Default to false if detection fails
+      shouldCollectInfo = false;
+    }
+
+    return {
+      response: aiResponse,
+      shouldCollectInfo
+    };
   } catch (error) {
     console.error('OpenAI API error:', error);
     throw error;

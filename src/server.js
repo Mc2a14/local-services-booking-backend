@@ -134,6 +134,21 @@ const runMigrations = async () => {
         console.log('⚠️  FAQs table migration:', err.message);
       }
     }
+
+    // Run customer inquiries table migration
+    try {
+      const inquiriesMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_customer_inquiries_table.sql');
+      if (fs.existsSync(inquiriesMigrationPath)) {
+        const inquiriesMigrationSQL = fs.readFileSync(inquiriesMigrationPath, 'utf8');
+        await pool.query(inquiriesMigrationSQL);
+        console.log('✅ Customer inquiries table migration completed');
+      }
+    } catch (err) {
+      // Ignore if table already exists
+      if (!err.message.includes('already exists') && err.code !== '42P07') {
+        console.log('⚠️  Customer inquiries table migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {

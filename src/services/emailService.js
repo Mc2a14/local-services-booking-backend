@@ -672,11 +672,102 @@ Thank you for using Atencio!`;
   }
 };
 
+// Send inquiry notification email to business owner
+const sendInquiryNotification = async (inquiry, businessName, businessOwnerEmail, providerEmailConfig = null) => {
+  const formattedDate = new Date(inquiry.created_at).toLocaleString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  // Build inquiry details
+  const inquiryDetails = {};
+  if (inquiry.customer_name) {
+    inquiryDetails['Customer Name'] = inquiry.customer_name;
+  }
+  if (inquiry.customer_email) {
+    inquiryDetails['Email'] = inquiry.customer_email;
+  }
+  if (inquiry.customer_phone) {
+    inquiryDetails['Phone'] = inquiry.customer_phone;
+  }
+  if (inquiry.inquiry_message) {
+    inquiryDetails['Message'] = inquiry.inquiry_message;
+  }
+  inquiryDetails['Received'] = formattedDate;
+
+  const html = createEmailTemplate(
+    'New Customer Inquiry',
+    `<p>You have received a new customer inquiry for <strong>${businessName}</strong>.</p>
+     <p>A customer is interested in your services and has provided their contact information.</p>`,
+    inquiryDetails
+  );
+
+  const text = `New Customer Inquiry for ${businessName}
+
+You have received a new customer inquiry. A customer is interested in your services and has provided their contact information.
+
+${Object.entries(inquiryDetails).map(([key, value]) => `${key}: ${value}`).join('\n')}
+
+Please contact them soon to follow up!`;
+
+  // Use provider's email config if available, otherwise try system email
+  const transporter = createTransporter(providerEmailConfig);
+  
+  if (transporter) {
+    try {
+      const fromEmail = providerEmailConfig?.email_from_address || providerEmailConfig?.email_smtp_user || process.env.SYSTEM_EMAIL;
+      const fromName = providerEmailConfig?.email_from_name || businessName || 'Atencio';
+
+      await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: businessOwnerEmail,
+        subject: `New Customer Inquiry - ${businessName}`,
+        text: text,
+        html: html
+      });
+
+      console.log(`✅ Inquiry notification email sent to ${businessOwnerEmail}`);
+      
+      // Log email notification
+      await query(
+        `INSERT INTO email_notifications (recipient_email, recipient_type, notification_type, subject, body, status)
+         VALUES ($1, 'provider', 'inquiry_notification', $2, $3, 'sent')`,
+        [businessOwnerEmail, `New Customer Inquiry - ${businessName}`, text]
+      );
+
+      return true;
+    } catch (error) {
+      console.error(`❌ Failed to send inquiry notification email to ${businessOwnerEmail}:`, error.message);
+      
+      // Log failed email notification
+      await query(
+        `INSERT INTO email_notifications (recipient_email, recipient_type, notification_type, subject, body, status)
+         VALUES ($1, 'provider', 'inquiry_notification', $2, $3, 'failed')`,
+        [businessOwnerEmail, `New Customer Inquiry - ${businessName}`, text]
+      ).catch(err => console.error('Failed to log email notification:', err));
+
+      return false;
+    }
+  } else {
+    // No email configured - log it
+    console.log(`📧 Inquiry notification email would be sent to ${businessOwnerEmail}`);
+    console.log(`   Inquiry details:`, inquiryDetails);
+    console.log(`   To enable email notifications, configure email settings in your business profile`);
+    return false;
+  }
+};
+
 module.exports = {
   sendEmail,
   sendBookingConfirmation,
   sendBookingStatusUpdate,
   sendBookingReminder,
   getEmailNotifications,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendInquiryNotification
 };
