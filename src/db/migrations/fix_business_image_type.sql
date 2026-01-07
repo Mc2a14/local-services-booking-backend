@@ -11,3 +11,4 @@ COMMENT ON COLUMN providers.business_image_url IS 'URL to business logo or main 
 
 
 
+

@@ -33,10 +33,13 @@ const chat = async (req, res) => {
     // Generate AI response (use provider.id which is the UUID, pass business_slug for booking context, and language)
     const aiResult = await aiService.generateAIResponse(question, provider.id, provider.business_slug, language);
 
+    // Check if inquiry collection is enabled for this business
+    const inquiryCollectionEnabled = provider.inquiry_collection_enabled !== false; // Default to true if null/undefined
+
     res.json({
       question,
       response: aiResult.response,
-      shouldCollectInfo: aiResult.shouldCollectInfo || false,
+      shouldCollectInfo: inquiryCollectionEnabled ? (aiResult.shouldCollectInfo || false) : false,
       business_name: provider.business_name
     });
   } catch (error) {

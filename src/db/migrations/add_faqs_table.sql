@@ -35,3 +35,4 @@ CREATE TRIGGER update_faqs_updated_at
 
 
 
+

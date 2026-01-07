@@ -77,7 +77,9 @@ const getBusinessBySlug = async (req, res) => {
         phone: provider.phone,
         address: provider.address,
         business_image_url: provider.business_image_url,
-        owner_name: provider.owner_name
+        owner_name: provider.owner_name,
+        booking_enabled: provider.booking_enabled !== false, // Default to true if null/undefined
+        inquiry_collection_enabled: provider.inquiry_collection_enabled !== false // Default to true if null/undefined
       },
       services: servicesWithRatings,
       testimonials: testimonials

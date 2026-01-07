@@ -149,6 +149,21 @@ const runMigrations = async () => {
         console.log('⚠️  Customer inquiries table migration:', err.message);
       }
     }
+
+    // Run feature toggles migration
+    try {
+      const featureTogglesMigrationPath = path.join(__dirname, 'db', 'migrations', 'add_feature_toggles.sql');
+      if (fs.existsSync(featureTogglesMigrationPath)) {
+        const featureTogglesMigrationSQL = fs.readFileSync(featureTogglesMigrationPath, 'utf8');
+        await pool.query(featureTogglesMigrationSQL);
+        console.log('✅ Feature toggles migration completed');
+      }
+    } catch (err) {
+      // Ignore if columns already exist
+      if (!err.message.includes('already exists') && err.code !== '42701') {
+        console.log('⚠️  Feature toggles migration:', err.message);
+      }
+    }
     
     console.log('✅ Database migrations completed successfully');
   } catch (error) {

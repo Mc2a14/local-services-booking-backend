@@ -99,7 +99,7 @@ const createProvider = async (userId, providerData) => {
 // Get provider by user ID
 const getProviderByUserId = async (userId) => {
   const result = await query(
-    'SELECT id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at FROM providers WHERE user_id = $1',
+    'SELECT id, user_id, business_name, business_slug, description, phone, address, business_image_url, booking_enabled, inquiry_collection_enabled, created_at FROM providers WHERE user_id = $1',
     [userId]
   );
 
@@ -129,7 +129,7 @@ const getProviderBySlug = async (slug) => {
 
 // Update provider by user ID
 const updateProvider = async (userId, providerData) => {
-  const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url } = providerData;
+  const { business_name, description, phone, address, email_password, email_service_type, business_slug, business_image_url, booking_enabled, inquiry_collection_enabled } = providerData;
 
   // Get user's email
   const userResult = await query('SELECT email FROM users WHERE id = $1', [userId]);
@@ -232,13 +232,15 @@ const updateProvider = async (userId, providerData) => {
            address = COALESCE($4, address),
            business_slug = COALESCE($5::VARCHAR, business_slug),
            business_image_url = COALESCE($6, business_image_url),
+           booking_enabled = COALESCE($13, booking_enabled),
+           inquiry_collection_enabled = COALESCE($14, inquiry_collection_enabled),
            email_service_type = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
            email_smtp_user = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
            email_smtp_password_encrypted = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($9::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,
            email_from_address = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($10, email_from_address) ELSE email_from_address END,
            email_from_name = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($11, email_from_name) ELSE email_from_name END
        WHERE user_id = $12 
-       RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, created_at`,
+       RETURNING id, user_id, business_name, business_slug, description, phone, address, business_image_url, booking_enabled, inquiry_collection_enabled, created_at`,
       [
         business_name || null, 
         description || null, 
@@ -251,7 +253,9 @@ const updateProvider = async (userId, providerData) => {
         encryptedPassword,
         hasEmailPassword ? userEmail : null,
         hasEmailPassword ? (business_name || null) : null,
-        userId
+        userId,
+        booking_enabled !== undefined ? booking_enabled : null,
+        inquiry_collection_enabled !== undefined ? inquiry_collection_enabled : null
       ]
     );
 

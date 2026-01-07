@@ -18,3 +18,4 @@ CREATE INDEX IF NOT EXISTS idx_providers_email_config ON providers(user_id) WHER
 
 
 
+

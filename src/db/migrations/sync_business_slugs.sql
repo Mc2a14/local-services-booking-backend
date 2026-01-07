@@ -52,3 +52,4 @@ WHERE p1.business_name IS NOT NULL
 -- Drop the helper function
 DROP FUNCTION IF EXISTS generate_slug_from_name(TEXT);
 
+

@@ -1,4 +1,5 @@
 const bookingService = require('../services/bookingService');
+const providerService = require('../services/providerService');
 const { query } = require('../db');
 
 // Create a new booking (customer only - requires auth)
@@ -74,6 +75,22 @@ const createGuestBooking = async (req, res) => {
 
     if (bookingDate < new Date()) {
       return res.status(400).json({ error: 'Booking date must be in the future' });
+    }
+
+    // Check if booking is enabled for this business
+    const serviceResult = await query('SELECT provider_id FROM services WHERE id = $1', [service_id]);
+    if (serviceResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+    
+    const providerId = serviceResult.rows[0].provider_id;
+    const providerResult = await query('SELECT booking_enabled FROM providers WHERE user_id = $1', [providerId]);
+    if (providerResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    
+    if (providerResult.rows[0].booking_enabled === false) {
+      return res.status(403).json({ error: 'Online booking is currently disabled for this business. Please contact them directly.' });
     }
 
     const booking = await bookingService.createGuestBooking({
