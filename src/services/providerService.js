@@ -226,6 +226,10 @@ const updateProvider = async (userId, providerData) => {
     // Cast encryptedPassword to TEXT explicitly so PostgreSQL knows the type
     const hasEmailPassword = encryptedPassword !== null;
     
+    // Prepare boolean parameters with explicit casting
+    const bookingEnabledParam = booking_enabled !== undefined ? booking_enabled : null;
+    const inquiryCollectionEnabledParam = inquiry_collection_enabled !== undefined ? inquiry_collection_enabled : null;
+
     const result = await query(
       `UPDATE providers 
        SET business_name = COALESCE($1, business_name), 
@@ -234,8 +238,8 @@ const updateProvider = async (userId, providerData) => {
            address = COALESCE($4, address),
            business_slug = COALESCE($5::VARCHAR, business_slug),
            business_image_url = COALESCE($6, business_image_url),
-           booking_enabled = CASE WHEN $13 IS NOT NULL THEN $13::BOOLEAN ELSE booking_enabled END,
-           inquiry_collection_enabled = CASE WHEN $14 IS NOT NULL THEN $14::BOOLEAN ELSE inquiry_collection_enabled END,
+           booking_enabled = CASE WHEN $13::BOOLEAN IS NOT NULL THEN $13::BOOLEAN ELSE booking_enabled END,
+           inquiry_collection_enabled = CASE WHEN $14::BOOLEAN IS NOT NULL THEN $14::BOOLEAN ELSE inquiry_collection_enabled END,
            email_service_type = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($7, email_service_type) ELSE email_service_type END,
            email_smtp_user = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($8, email_smtp_user) ELSE email_smtp_user END,
            email_smtp_password_encrypted = CASE WHEN $9::TEXT IS NOT NULL THEN COALESCE($9::TEXT, email_smtp_password_encrypted) ELSE email_smtp_password_encrypted END,
@@ -256,8 +260,8 @@ const updateProvider = async (userId, providerData) => {
         hasEmailPassword ? userEmail : null,
         hasEmailPassword ? (business_name || null) : null,
         userId,
-        booking_enabled !== undefined ? booking_enabled : null,
-        inquiry_collection_enabled !== undefined ? inquiry_collection_enabled : null
+        bookingEnabledParam,
+        inquiryCollectionEnabledParam
       ]
     );
 
